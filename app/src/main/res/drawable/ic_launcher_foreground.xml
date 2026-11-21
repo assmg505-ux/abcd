@@ -1,23 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Gubby face: green jelly blob with big eyes. 108dp canvas, safe zone is the middle 66dp. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- sun -->
+    <!-- body -->
     <path
-        android:fillColor="#FFD23F"
-        android:pathData="M54,30m-16,0a16,16 0,1 1,32 0a16,16 0,1 1,-32 0" />
-    <!-- ground -->
+        android:fillColor="#5EE07A"
+        android:strokeColor="#2B1640"
+        android:strokeWidth="3"
+        android:pathData="M28,68 C27,34 81,34 80,68 C80,74 76,76 70,76 L38,76 C32,76 28,74 28,68 Z" />
+    <!-- shine -->
     <path
-        android:fillColor="#00F0FF"
-        android:pathData="M18,70h72v4h-72z" />
-    <!-- runner body -->
+        android:fillColor="#AAFFFFFF"
+        android:pathData="M36,48 a4,3 0 1,0 8,0 a4,3 0 1,0 -8,0" />
+    <!-- eyes -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M44,46h8v18h-8z" />
-    <!-- spike -->
+        android:strokeColor="#2B1640"
+        android:strokeWidth="2"
+        android:pathData="M42,56 a6,7 0 1,0 12,0 a6,7 0 1,0 -12,0 M58,56 a6,7 0 1,0 12,0 a6,7 0 1,0 -12,0" />
     <path
-        android:fillColor="#FF3D7F"
-        android:pathData="M68,74L76,56L84,74z" />
+        android:fillColor="#2B1640"
+        android:pathData="M47,57 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0 M63,57 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0" />
+    <!-- smile -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#2B1640"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M52,66 Q57,71 62,66" />
+    <!-- cheeks -->
+    <path
+        android:fillColor="#66FF5A8C"
+        android:pathData="M37,64 a4,2.5 0 1,0 8,0 a4,2.5 0 1,0 -8,0 M69,64 a4,2.5 0 1,0 8,0 a4,2.5 0 1,0 -8,0" />
 </vector>

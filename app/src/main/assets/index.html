@@ -3,400 +3,279 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>Run N Dash</title>
+<meta name="theme-color" content="#2b1640">
+<title>Gubbies</title>
 <style>
-  html, body {
-    margin: 0; height: 100%; overflow: hidden;
-    background: #14083a; touch-action: none;
-    -webkit-user-select: none; user-select: none;
-    -webkit-tap-highlight-color: transparent;
+  :root {
+    --ink: #2b1640;
+    --yellow: #ffd84a; --pink: #ff6fb1; --blue: #5cc4ff; --green: #5ee07a;
+    --purple: #b07cff; --orange: #ff8a4a; --cream: #fff7ea;
   }
-  canvas { display: block; width: 100vw; height: 100vh; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%; overflow: hidden; background: #7fd0ff;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    font-family: system-ui, -apple-system, Roboto, "Segoe UI", sans-serif;
+    color: var(--ink); font-weight: 800;
+  }
+  #game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+  #safe {
+    position: fixed; visibility: hidden; pointer-events: none;
+    padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right);
+  }
+
+  .screen {
+    position: fixed; inset: 0; display: none;
+    flex-direction: column; align-items: center; justify-content: center; gap: 2.2vh;
+    padding: 3vh max(3vw, env(safe-area-inset-right)) 3vh max(3vw, env(safe-area-inset-left));
+  }
+  .screen.show { display: flex; animation: fadein .22s ease-out; }
+  .dim { background: rgba(43, 22, 64, .6); }
+  @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+
+  .outlined {
+    color: #fff;
+    text-shadow:
+      .55vh 0 0 var(--ink), -.55vh 0 0 var(--ink), 0 .55vh 0 var(--ink), 0 -.55vh 0 var(--ink),
+      .4vh .4vh 0 var(--ink), -.4vh .4vh 0 var(--ink), .4vh -.4vh 0 var(--ink), -.4vh -.4vh 0 var(--ink),
+      0 1.1vh 0 var(--ink);
+  }
+
+  /* ---------- buttons ---------- */
+  .btn {
+    font: inherit; font-weight: 900; font-size: 4.8vh; letter-spacing: .04em; line-height: 1;
+    color: var(--ink); background: var(--yellow);
+    border: .6vh solid var(--ink); border-radius: 2.6vh;
+    padding: 1.7vh 3.6vh; cursor: pointer;
+    box-shadow: inset 0 -1vh 0 rgba(0,0,0,.16), 0 .9vh 0 var(--ink);
+    transition: transform .06s;
+    display: inline-flex; align-items: center; justify-content: center; gap: 1vh;
+  }
+  .btn:active { transform: translateY(.7vh); box-shadow: inset 0 -.5vh 0 rgba(0,0,0,.16), 0 .2vh 0 var(--ink); }
+  .btn.big { font-size: 7.6vh; padding: 2.2vh 8vh; border-radius: 3.6vh; }
+  .btn.small { font-size: 3.4vh; padding: 1.2vh 2.4vh; border-radius: 2vh; }
+  .btn.pink { background: var(--pink); }
+  .btn.blue { background: var(--blue); }
+  .btn.green { background: var(--green); }
+  .btn.white { background: var(--cream); }
+  .btn.ghost { background: #e6dccb; color: #6b5a80; }
+  .btn.locked { opacity: .55; }
+  .btn svg { width: 1em; height: 1em; }
+  .pulse { animation: pulse 1.1s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+  .shake { animation: shake .35s; }
+  @keyframes shake { 20%,60% { transform: translateX(-1vh); } 40%,80% { transform: translateX(1vh); } }
+
+  .row { display: flex; gap: 2.4vh; align-items: center; justify-content: center; flex-wrap: wrap; }
+
+  .coin {
+    display: inline-block; width: .9em; height: .9em; border-radius: 50%; flex: none;
+    background: radial-gradient(circle at 35% 35%, #fff6b0 0 16%, #ffd23f 20% 58%, #f0a800 62%);
+    border: .12em solid var(--ink); vertical-align: -.1em;
+  }
+  .pill {
+    background: var(--cream); border: .5vh solid var(--ink); border-radius: 99px;
+    padding: .9vh 2.6vh; font-size: 3.8vh; font-weight: 900;
+    box-shadow: 0 .6vh 0 var(--ink); display: inline-flex; align-items: center; gap: 1vh;
+  }
+  .pill .lbl { font-size: .7em; opacity: .7; }
+
+  /* ---------- menu ---------- */
+  #menu { background: linear-gradient(rgba(43,22,64,.28), rgba(43,22,64,0) 35%, rgba(43,22,64,0) 70%, rgba(43,22,64,.25)); }
+  .topbar {
+    position: absolute; top: 3vh; left: max(3vw, env(safe-area-inset-left)); right: max(3vw, env(safe-area-inset-right));
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .logo { display: flex; gap: .2vh; margin-top: 4vh; }
+  .logo span {
+    font-size: 19vh; font-weight: 900; line-height: .95; display: inline-block; color: var(--c);
+    transform: rotate(var(--r));
+    animation: bob 1.4s ease-in-out infinite; animation-delay: calc(var(--i) * -.14s);
+    text-shadow:
+      .9vh 0 0 var(--ink), -.9vh 0 0 var(--ink), 0 .9vh 0 var(--ink), 0 -.9vh 0 var(--ink),
+      .65vh .65vh 0 var(--ink), -.65vh .65vh 0 var(--ink), .65vh -.65vh 0 var(--ink), -.65vh -.65vh 0 var(--ink),
+      0 2vh 0 var(--ink);
+  }
+  @keyframes bob {
+    0%,100% { transform: translateY(0) rotate(var(--r)) scale(1,1); }
+    50% { transform: translateY(-2.2vh) rotate(calc(var(--r) * -1)) scale(.96,1.05); }
+  }
+  .tagline { font-size: 5.4vh; font-weight: 900; letter-spacing: .12em; margin-top: -1vh; }
+
+  /* ---------- panels ---------- */
+  .panel {
+    background: var(--cream); border: .7vh solid var(--ink); border-radius: 4vh;
+    box-shadow: 0 1.4vh 0 var(--ink);
+    padding: 2.6vh 3.6vh; width: min(94vw, 1000px); max-height: 92vh;
+    overflow-y: auto; touch-action: pan-y; -webkit-overflow-scrolling: touch;
+  }
+  .panel.narrow { width: min(80vw, 620px); text-align: center; display: flex; flex-direction: column; gap: 2.6vh; align-items: center; }
+  .phead { display: flex; align-items: center; justify-content: space-between; gap: 2vh; }
+  .phead h2 { font-size: 6.6vh; font-weight: 900; letter-spacing: .04em; }
+  .title { font-size: 10vh; font-weight: 900; letter-spacing: .04em; line-height: 1; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(24vh, 1fr)); gap: 2vh; margin-top: 2.2vh; }
+  .card {
+    background: #fff; border: .5vh solid var(--ink); border-radius: 2.6vh; padding: 1.4vh;
+    display: flex; flex-direction: column; align-items: center; gap: 1vh;
+  }
+  .card.equipped { background: #e4ffe9; border-color: #2fae4e; }
+  .card canvas { width: 20vh; height: 16.6vh; }
+  .card .cname { font-size: 3.4vh; font-weight: 900; }
+
+  .mrow {
+    display: flex; align-items: center; gap: 2vh; background: #fff;
+    border: .5vh solid var(--ink); border-radius: 2.4vh; padding: 1.6vh 2.2vh; margin-top: 1.6vh;
+  }
+  .mrow.done { background: #e4ffe9; }
+  .mtext { flex: 1; font-size: 3.8vh; }
+  .bar { height: 2.4vh; background: #eadfcf; border-radius: 99px; border: .4vh solid var(--ink); overflow: hidden; margin-top: .9vh; }
+  .bar i { display: block; height: 100%; background: var(--green); }
+  .reward { font-size: 3.8vh; white-space: nowrap; display: flex; align-items: center; gap: .6vh; }
+  .note { font-size: 3vh; opacity: .7; margin-top: 2vh; text-align: center; }
+
+  .toggles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2vh; margin-top: 2vh; }
+  .toggle.off { background: #e6dccb; color: #8a7a9c; }
+  .howto { margin-top: 2.4vh; font-size: 3.5vh; line-height: 1.45; background: #fff; border: .5vh solid var(--ink); border-radius: 2.4vh; padding: 1.8vh 2.4vh; }
+  .howto b { color: #d63f86; }
+
+  /* ---------- game over ---------- */
+  .over { display: grid; grid-template-columns: 1fr 1.25fr; gap: 1.6vh 4vh; align-items: center; }
+  .over .left { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 1vh; }
+  .ribbon {
+    background: var(--pink); color: #fff; font-size: 3.8vh; font-weight: 900; letter-spacing: .1em;
+    padding: .8vh 3vh; border: .5vh solid var(--ink); border-radius: 1.4vh;
+    transform: rotate(-4deg); animation: pulse .8s ease-in-out infinite;
+  }
+  .bigscore { font-size: 15vh; font-weight: 900; line-height: 1; }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 1.4vh; }
+  .stats div {
+    background: #fff; border: .5vh solid var(--ink); border-radius: 2vh; padding: 1.2vh 1.8vh;
+    display: flex; flex-direction: column;
+  }
+  .stats span { font-size: 2.6vh; opacity: .65; letter-spacing: .06em; }
+  .stats b { font-size: 4.6vh; font-weight: 900; }
+  #goMissions { display: flex; flex-direction: column; gap: 1vh; }
+  #goMissions div {
+    background: #e4ffe9; border: .5vh solid #2fae4e; border-radius: 1.8vh; padding: .9vh 1.6vh;
+    font-size: 3vh; display: flex; justify-content: space-between; gap: 1vh; align-items: center;
+  }
+  .over .buttons { grid-column: 1 / -1; display: flex; gap: 2.4vh; justify-content: center; flex-wrap: wrap; }
 </style>
 </head>
 <body>
-<canvas id="c"></canvas>
-<script>
-(function () {
-  'use strict';
+<div id="safe"></div>
+<canvas id="game"></canvas>
 
-  const canvas = document.getElementById('c');
-  const ctx = canvas.getContext('2d');
+<!-- MENU -->
+<div id="menu" class="screen">
+  <div class="topbar">
+    <div class="pill"><span class="lbl">BEST</span><b id="menuBest">0</b></div>
+    <div class="pill"><span class="coin"></span><b id="menuCoins">0</b></div>
+  </div>
+  <div class="logo" id="logo"></div>
+  <div class="tagline outlined">WE ARE GUBBIES!</div>
+  <button class="btn big yellow pulse" id="btnPlay">PLAY</button>
+  <div class="row">
+    <button class="btn pink" id="btnShop">SHOP</button>
+    <button class="btn blue" id="btnMissions">MISSIONS</button>
+    <button class="btn white" id="btnSettings" aria-label="Settings">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.4-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3.3h-4l-.4 2.7a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.4L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.4 2.5-1a7.4 7.4 0 0 0 1.7 1l.4 2.7h4l.4-2.7a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.4zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>
+    </button>
+  </div>
+</div>
 
-  // Logical world is always H units tall; width adapts to the screen aspect ratio.
-  const H = 600, GROUND = 510, GRAV = 2600, JUMP = 980, DJUMP = 880, PX = 0.18;
-  let dpr = 1, cssW = 1, cssH = 1, s = 1, lw = 1;
+<!-- SHOP -->
+<div id="shop" class="screen dim">
+  <div class="panel">
+    <div class="phead">
+      <button class="btn small white" data-back>BACK</button>
+      <h2>GUB SHOP</h2>
+      <div class="pill"><span class="coin"></span><b id="shopCoins">0</b></div>
+    </div>
+    <div id="shopGrid" class="grid"></div>
+  </div>
+</div>
 
-  function resize() {
-    dpr = Math.min(window.devicePixelRatio || 1, 2.5);
-    cssW = window.innerWidth; cssH = window.innerHeight;
-    canvas.width = Math.round(cssW * dpr);
-    canvas.height = Math.round(cssH * dpr);
-    s = cssH / H; lw = cssW / s;
-  }
-  window.addEventListener('resize', resize);
-  resize();
+<!-- MISSIONS -->
+<div id="missions" class="screen dim">
+  <div class="panel">
+    <div class="phead">
+      <button class="btn small white" data-back>BACK</button>
+      <h2>MISSIONS</h2>
+      <div class="pill"><span class="lbl">GUB LV</span><b id="mLevel">1</b></div>
+    </div>
+    <div id="mList"></div>
+    <p class="note">Finish missions to earn coins. Every 3 missions = Gub Level up = bigger rewards!</p>
+  </div>
+</div>
 
-  // ---- persistence (best score) ----
-  const KEY = 'runndash-best';
-  let best = 0;
-  try { best = parseInt(localStorage.getItem(KEY) || '0', 10) || 0; } catch (e) {}
-  function saveBest() { try { localStorage.setItem(KEY, String(best)); } catch (e) {} }
+<!-- SETTINGS -->
+<div id="settings" class="screen dim">
+  <div class="panel">
+    <div class="phead">
+      <button class="btn small white" data-back>BACK</button>
+      <h2>SETTINGS</h2>
+      <div style="width:12vh"></div>
+    </div>
+    <div class="toggles">
+      <button class="btn toggle green" data-set="music">MUSIC</button>
+      <button class="btn toggle green" data-set="sfx">SOUND</button>
+      <button class="btn toggle green" data-set="haptics">VIBRATE</button>
+    </div>
+    <div class="howto">
+      <b>TAP</b> anywhere to jump. Hold for a higher jump, tap again in the air to <b>DOUBLE JUMP</b>.<br>
+      <b>DASH</b> smashes crates &amp; Grumps and flies over gaps. It recharges over time and with coins.<br>
+      <b>SLIDE</b> under low Grumps. Press it in the air to <b>SLAM</b> down and break everything below.<br>
+      Land on <b>Grumps &amp; crates</b> to stomp them for combos.<br>
+      Rescue <b>baby Gubbies</b>! Each one multiplies your score and takes a hit for you.
+    </div>
+    <div class="row" style="margin-top:2.4vh">
+      <button class="btn small white" id="btnTutorial">REPLAY TUTORIAL</button>
+    </div>
+  </div>
+</div>
 
-  // ---- sound (tiny synth beeps, no assets) ----
-  let ac = null;
-  function beep(f, d, type) {
-    try {
-      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
-      const o = ac.createOscillator(), g = ac.createGain();
-      o.type = type || 'square'; o.frequency.value = f;
-      g.gain.setValueAtTime(0.06, ac.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + d);
-      o.connect(g); g.connect(ac.destination);
-      o.start(); o.stop(ac.currentTime + d);
-    } catch (e) {}
-  }
+<!-- PAUSE -->
+<div id="pause" class="screen dim">
+  <div class="panel narrow">
+    <div class="title outlined">PAUSED</div>
+    <button class="btn big yellow" id="btnResume">RESUME</button>
+    <div class="row">
+      <button class="btn pink" id="btnRestart">RESTART</button>
+      <button class="btn white" id="btnHome">HOME</button>
+    </div>
+  </div>
+</div>
 
-  const rnd = (a, b) => a + Math.random() * (b - a);
-  const hit = (ax, ay, aw, ah, bx, by, bw, bh) =>
-    ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+<!-- GAME OVER -->
+<div id="over" class="screen dim">
+  <div class="panel over">
+    <div class="left">
+      <div class="title outlined" id="goTitle">SPLAT!</div>
+      <div class="ribbon" id="goBest">NEW BEST!</div>
+      <div class="bigscore outlined" id="goScore">0</div>
+      <div class="pill"><span class="lbl">BEST</span><b id="goBestVal">0</b></div>
+    </div>
+    <div>
+      <div class="stats">
+        <div><span>DISTANCE</span><b id="goDist">0m</b></div>
+        <div><span>COINS</span><b id="goCoins">0</b></div>
+        <div><span>GUBBIES SAVED</span><b id="goSaved">0</b></div>
+        <div><span>BEST COMBO</span><b id="goCombo">0</b></div>
+      </div>
+      <div id="goMissions" style="margin-top:1.4vh"></div>
+    </div>
+    <div class="buttons">
+      <button class="btn green" id="btnRevive">SECOND CHANCE <span class="coin"></span><span id="reviveCost">150</span></button>
+      <button class="btn big yellow pulse" id="btnAgain">PLAY AGAIN</button>
+      <button class="btn white" id="btnOverHome">HOME</button>
+    </div>
+  </div>
+</div>
 
-  // ---- game state ----
-  let state = 'menu';
-  let player, obs, coins, parts;
-  let t, speed, dist, coinCount, spawnIn, coinIn, overT, shake, lastTime = 0;
-  let pDown = false, pDownY = 0, pDownT = 0, swiped = false, keyDuck = false;
-
-  function getScore() { return Math.floor(dist / 10) + coinCount * 5; }
-  function playerX() { return lw * PX; }
-
-  function reset() {
-    player = { y: GROUND, vy: 0, onGround: true, jumps: 0, duck: 0, run: 0 };
-    obs = []; coins = []; parts = [];
-    t = 0; speed = 380; dist = 0; coinCount = 0;
-    spawnIn = 1.0; coinIn = 1.2; overT = 0; shake = 0;
-  }
-
-  function burst(x, y, color, n) {
-    for (let i = 0; i < n; i++) {
-      parts.push({ x, y, vx: rnd(-240, 240), vy: rnd(-460, -120), life: rnd(0.4, 0.9), c: color });
-    }
-  }
-
-  function start() { reset(); state = 'play'; beep(660, 0.1); }
-
-  function die() {
-    if (state !== 'play') return;
-    state = 'over'; overT = 0; shake = 0.35;
-    const sc = getScore();
-    if (sc > best) { best = sc; saveBest(); }
-    beep(140, 0.35, 'sawtooth');
-    burst(playerX() + 17, player.y - 30, '#ffd23f', 26);
-  }
-
-  function tryRestart() {
-    if (state === 'over' && overT < 0.6) return;
-    start();
-  }
-
-  function jump() {
-    if (state !== 'play') { tryRestart(); return; }
-    if (player.onGround) {
-      player.vy = -JUMP; player.onGround = false; player.jumps = 1; player.duck = 0;
-      beep(520, 0.09);
-    } else if (player.jumps < 2) {
-      player.vy = -DJUMP; player.jumps = 2; player.duck = 0;
-      beep(780, 0.09);
-      burst(playerX() + 17, player.y - 30, '#7cf6ff', 8);
-    }
-  }
-
-  // ---- input ----
-  canvas.addEventListener('pointerdown', e => {
-    e.preventDefault();
-    pDown = true; pDownY = e.clientY; pDownT = 0; swiped = false;
-    jump();
-  });
-  window.addEventListener('pointermove', e => {
-    if (pDown && !swiped && e.clientY - pDownY > 40) swiped = true;
-  });
-  const release = () => { pDown = false; swiped = false; pDownT = 0; };
-  window.addEventListener('pointerup', release);
-  window.addEventListener('pointercancel', release);
-
-  window.addEventListener('keydown', e => {
-    if (e.repeat) return;
-    if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); jump(); }
-    else if (e.code === 'ArrowDown') { e.preventDefault(); keyDuck = true; }
-    else if (e.code === 'Enter') { tryRestart(); }
-  });
-  window.addEventListener('keyup', e => { if (e.code === 'ArrowDown') keyDuck = false; });
-  document.addEventListener('contextmenu', e => e.preventDefault());
-  document.addEventListener('visibilitychange', () => { if (document.hidden) die(); });
-
-  // ---- update ----
-  function makeObs(kind) {
-    const x = lw + 40;
-    if (kind === 'spike') return { kind, x, y: GROUND - 42, w: 30, h: 42 };
-    if (kind === 'block') return { kind, x, y: GROUND - 96, w: 46, h: 96 };
-    return { kind: 'bird', x, y: GROUND - 70, w: 44, h: 38 }; // must duck under
-  }
-
-  function update(dt) {
-    t += dt;
-    parts.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 900 * dt; p.life -= dt; });
-    parts = parts.filter(p => p.life > 0);
-    if (shake > 0) shake -= dt;
-
-    if (state === 'over') { overT += dt; return; }
-
-    if (state === 'menu') {
-      dist += 120 * dt; // idle backdrop scroll
-      player.run += dt * 4;
-      return;
-    }
-
-    // play
-    speed = Math.min(950, 380 + t * 11);
-    const d = speed * dt;
-    dist += d;
-    if (pDown) pDownT += dt;
-
-    const wantDuck = keyDuck || (pDown && (swiped || pDownT > 0.2));
-    if (wantDuck) {
-      player.duck = 0.12;
-      if (!player.onGround) player.vy = Math.max(player.vy, 900);
-    } else {
-      player.duck = Math.max(0, player.duck - dt);
-    }
-
-    player.vy += GRAV * dt;
-    player.y += player.vy * dt;
-    if (player.y >= GROUND) {
-      player.y = GROUND; player.vy = 0;
-      player.onGround = true; player.jumps = 0;
-    }
-    player.run += dt * speed / 90;
-
-    // spawn obstacles (time-based gap => always reachable at any speed)
-    spawnIn -= dt;
-    if (spawnIn <= 0) {
-      const r = Math.random();
-      obs.push(makeObs(r < 0.4 ? 'spike' : r < 0.7 ? 'block' : 'bird'));
-      spawnIn = Math.max(0.55, rnd(0.85, 1.35) - Math.min(0.3, t * 0.008));
-    }
-
-    // spawn coin rows
-    coinIn -= dt;
-    if (coinIn <= 0) {
-      coinIn = rnd(1.1, 2.2);
-      const y = Math.random() < 0.5 ? GROUND - 40 : GROUND - 125;
-      for (let i = 0; i < 5; i++) coins.push({ x: lw + 40 + i * 34, y, got: false, ph: Math.random() * 6 });
-    }
-
-    obs.forEach(o => o.x -= d);
-    coins.forEach(c => c.x -= d);
-    obs = obs.filter(o => o.x + o.w > -60);
-    coins = coins.filter(c => c.x > -40 && !c.got);
-
-    // collisions
-    const px = playerX(), pw = 32, ph = player.duck > 0 ? 26 : 58, py = player.y - ph;
-    for (const o of obs) {
-      if (hit(px + 5, py + 5, pw - 10, ph - 10, o.x + 3, o.y + 3, o.w - 6, o.h - 6)) { die(); return; }
-    }
-    for (const c of coins) {
-      if (!c.got && hit(px - 4, py - 4, pw + 8, ph + 8, c.x - 11, c.y - 11, 22, 22)) {
-        c.got = true; coinCount++;
-        beep(1200, 0.05, 'triangle');
-        burst(c.x, c.y, '#ffd23f', 5);
-      }
-    }
-  }
-
-  // ---- drawing helpers ----
-  function buildings(factor, color, maxH, w) {
-    const off = dist * factor;
-    const start = Math.floor(off / w);
-    ctx.fillStyle = color;
-    for (let k = -1; k <= lw / w + 1; k++) {
-      const idx = start + k;
-      const x = k * w - (off % w);
-      const hv = (((idx * 2654435761) >>> 0) % 1000) / 1000;
-      const bh = maxH * (0.35 + 0.65 * hv);
-      ctx.fillRect(x, GROUND - bh, w + 1, bh);
-    }
-  }
-
-  function drawBackground() {
-    const g = ctx.createLinearGradient(0, 0, 0, GROUND);
-    g.addColorStop(0, '#14083a');
-    g.addColorStop(0.55, '#4b1a7a');
-    g.addColorStop(1, '#ff5e8a');
-    ctx.fillStyle = g;
-    ctx.fillRect(-60, -60, lw + 120, H + 120);
-
-    // sun
-    const sx = lw * 0.72, sy = GROUND - 210;
-    ctx.fillStyle = '#ffb36b';
-    ctx.beginPath(); ctx.arc(sx, sy, 90, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#ff7a8a';
-    for (let i = 0; i < 4; i++) ctx.fillRect(sx - 100, sy + 20 + i * 18, 200, 5 + i * 2);
-
-    buildings(0.25, '#2a1357', 170, 58);
-    buildings(0.5, '#1a0b3d', 230, 80);
-
-    // ground
-    ctx.fillStyle = '#1d1640';
-    ctx.fillRect(-60, GROUND, lw + 120, H);
-    ctx.fillStyle = '#00f0ff';
-    ctx.fillRect(-60, GROUND, lw + 120, 3);
-    ctx.fillStyle = 'rgba(0,240,255,0.28)';
-    const so = dist % 60;
-    for (let x = -so; x < lw + 60; x += 60) {
-      ctx.fillRect(x, GROUND + 16, 30, 3);
-      ctx.fillRect(x + 22, GROUND + 38, 26, 3);
-    }
-  }
-
-  function drawPlayer() {
-    const x = playerX(), y = player.y;
-    const ducked = player.duck > 0 && player.onGround;
-    ctx.strokeStyle = '#ffd23f'; ctx.fillStyle = '#ffd23f';
-    ctx.lineCap = 'round'; ctx.lineWidth = 6;
-    if (ducked) {
-      // slide pose
-      ctx.fillRect(x + 2, y - 26, 34, 14);
-      ctx.beginPath(); ctx.arc(x + 30, y - 18, 9, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#ff3d7f'; ctx.fillRect(x + 2, y - 14, 34, 3);
-      return;
-    }
-    // legs
-    if (player.onGround) {
-      const a = Math.sin(player.run * Math.PI * 2);
-      const b = -a;
-      ctx.beginPath();
-      ctx.moveTo(x + 12, y - 18); ctx.lineTo(x + 12 + a * 12, y - 3 - Math.max(0, Math.cos(player.run * Math.PI * 2)) * 8);
-      ctx.moveTo(x + 22, y - 18); ctx.lineTo(x + 22 + b * 12, y - 3 - Math.max(0, -Math.cos(player.run * Math.PI * 2)) * 8);
-      ctx.stroke();
-    } else {
-      ctx.beginPath();
-      ctx.moveTo(x + 12, y - 18); ctx.lineTo(x + 6, y - 8);
-      ctx.moveTo(x + 22, y - 18); ctx.lineTo(x + 30, y - 10);
-      ctx.stroke();
-    }
-    // body + scarf
-    ctx.fillRect(x + 8, y - 42, 18, 26);
-    ctx.fillStyle = '#ff3d7f';
-    ctx.fillRect(x + 4, y - 40, 8, 5);
-    ctx.fillStyle = '#ffd23f';
-    ctx.beginPath(); ctx.arc(x + 17, y - 50, 11, 0, Math.PI * 2); ctx.fill();
-    // eye
-    ctx.fillStyle = '#14083a';
-    ctx.fillRect(x + 20, y - 54, 3, 4);
-  }
-
-  function drawObstacle(o) {
-    const { x, y, w, h } = o;
-    if (o.kind === 'spike') {
-      ctx.fillStyle = '#ff3d7f';
-      ctx.beginPath(); ctx.moveTo(x, GROUND); ctx.lineTo(x + w / 2, y); ctx.lineTo(x + w, GROUND); ctx.fill();
-    } else if (o.kind === 'block') {
-      ctx.fillStyle = '#ff3d7f'; ctx.fillRect(x, y, w, h);
-      ctx.fillStyle = '#ffb3c8';
-      for (let i = -h; i < w; i += 14) {
-        ctx.beginPath();
-        ctx.moveTo(x + i, y + h); ctx.lineTo(x + i + 8, y + h); ctx.lineTo(x + i + 8 + h * 0.3, y); ctx.lineTo(x + i + h * 0.3, y);
-        ctx.fill();
-      }
-    } else {
-      const wing = Math.sin(t * 22) > 0 ? -16 : 10;
-      ctx.fillStyle = '#7cff6b';
-      ctx.beginPath(); ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2.2, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(x + w * 0.35, y + h / 2); ctx.lineTo(x + w * 0.6, y + h / 2 + wing); ctx.lineTo(x + w * 0.75, y + h / 2); ctx.fill();
-      ctx.fillStyle = '#14083a'; ctx.fillRect(x + w * 0.7, y + h / 2 - 5, 4, 4);
-    }
-  }
-
-  function drawCoin(c) {
-    const k = 0.35 + 0.65 * Math.abs(Math.cos(t * 4 + c.ph));
-    ctx.fillStyle = '#ffd23f';
-    ctx.beginPath(); ctx.ellipse(c.x, c.y, 10 * k + 1, 10, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#fff3a0';
-    ctx.beginPath(); ctx.ellipse(c.x - 3 * k, c.y - 4, 2.5 * k, 2.5, 0, 0, Math.PI * 2); ctx.fill();
-  }
-
-  function centerText(txt, y, size, color) {
-    ctx.font = 'bold ' + size + 'px system-ui, -apple-system, Roboto, sans-serif';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = color; ctx.fillText(txt, lw / 2, y);
-  }
-
-  function draw() {
-    ctx.setTransform(dpr * s, 0, 0, dpr * s, 0, 0);
-    ctx.save();
-    if (shake > 0) {
-      const k = shake / 0.35;
-      ctx.translate(rnd(-8, 8) * k, rnd(-8, 8) * k);
-    }
-    drawBackground();
-    coins.forEach(drawCoin);
-    obs.forEach(drawObstacle);
-    if (state !== 'menu' || true) drawPlayer();
-    parts.forEach(p => {
-      ctx.globalAlpha = Math.max(0, Math.min(1, p.life * 2));
-      ctx.fillStyle = p.c;
-      ctx.fillRect(p.x - 3, p.y - 3, 6, 6);
-    });
-    ctx.globalAlpha = 1;
-    ctx.restore();
-
-    ctx.textBaseline = 'alphabetic';
-    if (state === 'play' || state === 'over') {
-      ctx.font = 'bold 34px system-ui, -apple-system, Roboto, sans-serif';
-      ctx.textAlign = 'left'; ctx.fillStyle = '#fff';
-      ctx.fillText(String(getScore()), 20, 50);
-      ctx.font = '600 20px system-ui, -apple-system, Roboto, sans-serif';
-      ctx.fillStyle = '#ffd23f';
-      ctx.fillText('COINS ' + coinCount, 20, 80);
-      ctx.textAlign = 'right'; ctx.fillStyle = '#fff';
-      ctx.fillText('BEST ' + Math.max(best, getScore()), lw - 20, 50);
-    }
-
-    if (state === 'menu') {
-      ctx.fillStyle = 'rgba(10,4,30,0.45)'; ctx.fillRect(-60, -60, lw + 120, H + 120);
-      const g = ctx.createLinearGradient(lw / 2 - 300, 0, lw / 2 + 300, 0);
-      g.addColorStop(0, '#ffd23f'); g.addColorStop(1, '#ff3d7f');
-      ctx.font = 'black 92px system-ui, -apple-system, Roboto, sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = g; ctx.fillText('RUN N DASH', lw / 2, 200);
-      centerText('Tap = jump  •  Tap twice = double jump', 290, 24, '#e8e0ff');
-      centerText('Hold or swipe down = duck under birds', 322, 24, '#e8e0ff');
-      if (Math.floor(t * 2) % 2 === 0) centerText('TAP TO START', 400, 36, '#ffffff');
-      centerText('Best: ' + best, 450, 26, '#ffd23f');
-    }
-
-    if (state === 'over') {
-      ctx.fillStyle = 'rgba(10,4,30,0.5)'; ctx.fillRect(-60, -60, lw + 120, H + 120);
-      centerText('GAME OVER', 200, 74, '#ff3d7f');
-      centerText('Score  ' + getScore(), 280, 40, '#ffffff');
-      centerText('Coins  ' + coinCount, 325, 26, '#ffd23f');
-      centerText('Best  ' + best, 362, 26, '#e8e0ff');
-      if (overT >= 0.6 && Math.floor(t * 2) % 2 === 0) centerText('TAP TO RUN AGAIN', 440, 30, '#ffffff');
-    }
-  }
-
-  // ---- main loop ----
-  function frame(now) {
-    const dt = lastTime ? Math.min(0.033, (now - lastTime) / 1000) : 0;
-    lastTime = now;
-    update(dt);
-    draw();
-    requestAnimationFrame(frame);
-  }
-
-  reset();
-  requestAnimationFrame(frame);
-})();
-</script>
+<script src="js/audio.js"></script>
+<script src="js/game.js"></script>
 </body>
 </html>
