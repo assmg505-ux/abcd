@@ -43,7 +43,16 @@
     { id: 'lava', name: 'Lava Gub', rarity: 'legendary', price: 9500, body: '#3b1610', pat: 'lava', acc: ['flame'], sparkle: '#ffb03a' },
     { id: 'rainbow', name: 'Rainbow Gub', rarity: 'legendary', price: 10000, body: '#ff6fb1', pat: 'rainbow', sparkle: '#ffffff' },
     { id: 'unicorn', name: 'Unicorn Gub', rarity: 'legendary', price: 11000, body: '#fff0ff', pat: 'belly', acc: ['unicorn'], sparkle: '#ffd8ff' },
-    { id: 'dragon', name: 'Dragon Gub', rarity: 'legendary', price: 12000, body: '#4acb6a', pat: 'scales', acc: ['horns', 'wings', 'tail'], sparkle: '#ffb03a' }
+    { id: 'dragon', name: 'Dragon Gub', rarity: 'legendary', price: 12000, body: '#4acb6a', pat: 'scales', acc: ['horns', 'wings', 'tail'], sparkle: '#ffb03a' },
+    // ---------- added in 4.0 ----------
+    { id: 'chef', name: 'Chef Gub', rarity: 'common', price: 400, body: '#ffffff', pat: 'belly', acc: ['chef'] },
+    { id: 'santa', name: 'Santa Gub', rarity: 'rare', price: 1300, body: '#e8455f', pat: 'belly', acc: ['santa'] },
+    { id: 'viking', name: 'Viking Gub', rarity: 'rare', price: 1500, body: '#d9a066', pat: 'belly', acc: ['viking'] },
+    { id: 'mushroom', name: 'Shroom Gub', rarity: 'rare', price: 1600, body: '#f5e6d0', pat: 'spots', pc: 'rgba(255,111,177,0.4)', acc: ['shroomcap'] },
+    { id: 'jester', name: 'Jester Gub', rarity: 'epic', price: 2900, body: '#b07cff', pat: 'stripes', pc: '#ffd84a', acc: ['jester'] },
+    { id: 'shark', name: 'Shark Gub', rarity: 'epic', price: 3300, body: '#5a8fc8', pat: 'belly', acc: ['sharkfin'] },
+    { id: 'panda', name: 'Panda Gub', rarity: 'epic', price: 3500, body: '#ffffff', pat: 'panda', acc: ['pandaears'] },
+    { id: 'pumpkin', name: 'Pumpkin Gub', rarity: 'legendary', price: 7000, body: '#ff8a1a', pat: 'jack', acc: ['pumpkinstem'], sparkle: '#ffe14a' }
   ];
 
   const RAINBOW = ['#ff5f5f', '#ff9a3c', '#ffd84a', '#5ee07a', '#5cc4ff', '#b07cff'];
@@ -120,15 +129,55 @@
     { id: 'bomb', name: 'Gub Bomb', price: 2500, cd: 35, desc: 'BOOM! Blows up everything nearby.' },
     { id: 'rocket', name: 'Rocket Boost', price: 3000, cd: 40, desc: 'Blast off toward space!' },
     { id: 'phase', name: 'Phase Shift', price: 3500, cd: 40, desc: 'Ghost through everything for 3 seconds.' },
-    { id: 'call', name: 'Squad Call', price: 4500, cd: 45, desc: 'Summon 6 Gubs to join your squad.' }
+    { id: 'call', name: 'Squad Call', price: 4500, cd: 45, desc: 'Summon 6 Gubs to join your squad.' },
+    { id: 'star', name: 'Star Surge', price: 6000, cd: 50, desc: 'Become an unstoppable star for 4 seconds.' }
   ];
+
+  GD.PETS = [
+    { id: 'none', name: 'No Pet', price: 0, perk: '' },
+    { id: 'puppy', name: 'Puppy', price: 1500, perk: 'Pulls in coins (+150 range)' },
+    { id: 'kitty', name: 'Kitty', price: 2000, perk: 'More baby Gubs need rescuing (+30%)' },
+    { id: 'birdie', name: 'Birdie', price: 2500, perk: 'Free glide: hold jump to float' },
+    { id: 'bunny', name: 'Bun-Bun', price: 3000, perk: 'Jump 6% higher' },
+    { id: 'drone', name: 'Drone', price: 3500, perk: 'Dash recharges faster' },
+    { id: 'ghosty', name: 'Ghosty', price: 4500, perk: 'Free shield every 45 seconds' },
+    { id: 'dragon', name: 'Dragonling', price: 6000, perk: 'Power-ups last 30% longer' },
+    { id: 'duck', name: 'Golden Duck', price: 8000, perk: 'Every coin is worth 15% more' }
+  ];
+
+  // trophies: three tiers per stat. value() is looked up by key in game.js
+  const T3 = [100, 400, 1500];
+  const TR = [
+    ['meters', 'Marathoner', n => 'Run ' + n.toLocaleString('en-US') + 'm in total', [2000, 20000, 200000]],
+    ['runs', 'Regular', n => 'Play ' + n + ' runs', [10, 100, 500]],
+    ['coins', 'Coin Hoarder', n => 'Collect ' + n.toLocaleString('en-US') + ' coins', [500, 5000, 50000]],
+    ['stomps', 'Grump Stomper', n => 'Stomp ' + n + ' enemies', [25, 250, 1500]],
+    ['crates', 'Crate Crusher', n => 'Smash ' + n + ' crates', [50, 500, 3000]],
+    ['rescued', 'Gub Guardian', n => 'Rescue ' + n + ' baby Gubs', [25, 250, 2000]],
+    ['dashes', 'Dash Master', n => 'Dash ' + n + ' times', [25, 250, 1500]],
+    ['powerups', 'Power Player', n => 'Grab ' + n + ' power-ups', [15, 150, 1000]],
+    ['maxAlt', 'Sky High', n => 'Reach ' + n + 'm altitude', [40, 150, 400]],
+    ['maxSquad', 'Squad Goals', n => 'Lead a squad of ' + n, [10, 50, 250]],
+    ['bosses', 'Boss Slayer', n => 'Defeat ' + n + (n === 1 ? ' boss' : ' bosses'), [1, 5, 20]],
+    ['close', 'Daredevil', n => 'Make ' + n + ' close calls', [20, 150, 800]],
+    ['combo', 'Combo King', n => 'Chain a x' + n + ' combo', [8, 20, 45]],
+    ['best', 'High Scorer', n => 'Score ' + n.toLocaleString('en-US') + ' in one run', [10000, 100000, 1000000]],
+    ['skins', 'Collector', n => 'Own ' + n + ' Gubs', [6, 14, 28]],
+    ['level', 'Gub Level', n => 'Reach player level ' + n, [5, 15, 30]],
+    ['streak', 'Daily Devotee', n => 'Claim gifts ' + n + ' days in a row', [3, 7, 14]]
+  ];
+  GD.ACH = [];
+  const ROM = ['I', 'II', 'III'];
+  TR.forEach(t => t[3].forEach((n, i) => GD.ACH.push({ id: t[0] + i, stat: t[0], name: t[1] + ' ' + ROM[i], desc: t[2](n), target: n, reward: T3[i] })));
 
   GD.MODES = [
     { id: 'classic', name: 'CLASSIC', desc: 'Run forever. Climb all the way to space.', c: '#ffd84a' },
     { id: 'sky', name: 'SKY CLIMB', desc: 'No ground. Just up, up, UP!', c: '#6cc8ff' },
     { id: 'rush', name: 'TIME RUSH', desc: '60 seconds. Coins and Gubs add time.', c: '#ff8fc8' },
     { id: 'daily', name: 'DAILY RUN', desc: 'Same course for everyone today.', c: '#7dff9a' },
-    { id: 'zen', name: 'ZEN', desc: 'Relax. No game over. Half coins.', c: '#b9a1ff' }
+    { id: 'zen', name: 'ZEN', desc: 'Relax. No game over. Half coins.', c: '#b9a1ff' },
+    { id: 'boss', name: 'BOSS RUSH', desc: 'Grump Kings, back to back!', c: '#ff7a6a' },
+    { id: 'party', name: 'GUB PARTY', desc: 'Start with 25 Gubs. Babies everywhere!', c: '#ffa94d' }
   ];
 
   GD.ZONES = ['GROUND', 'SKY', 'STRATOSPHERE', 'SPACE', 'DEEP SPACE'];

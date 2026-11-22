@@ -1,26 +1,32 @@
 # GUBS - We Are Gubs!
 
-An arcade runner for Android. Squishy jelly Gubs run, dash, stomp and climb all the way to space.
-The game is plain HTML5 canvas (`app/src/main/assets`) wrapped in a thin WebView app.
+A 3D toon-shaded arcade runner for Android. Squishy jelly Gubs run, dash, stomp and climb all the way to space.
+The game is HTML5 (`app/src/main/assets`) rendered with a bundled copy of three.js (r160, MIT) inside a thin WebView app.
+Everything works offline. If WebGL is unavailable the game falls back to a 2D renderer.
+
+## Look
+Ink-outlined toon 3D: hazy sunset skies, long soft shadows, puffy low-poly scenery and 10 worlds
+(Candy Meadow, Sunset Dunes, Neon Night, Frosty Peaks, Lava Land, Haunted Hollow, Jungle Ruins,
+Crystal Gardens, Toyland, Coral Reef), plus sky, stratosphere, space and deep space as you climb.
+Settings has a GRAPHICS switch (HIGH / LOW). The game drops to LOW automatically on slow devices.
 
 ## Play
-- **Jump**: tap anywhere. Let go early for a small hop, hold for a big jump. Extra air jumps are a shop upgrade (double up to penta jump).
-- **Dash**: hold to keep dashing; it drains your charge, so burn it all for one long dash. Drag up/down on the button (or slide your finger in swipe mode) to steer. Upgrades: recharge, length, speed, strength, upward lift.
-- **Slide** ducks; in the air it **slams**.
-- **Ability** button (or swipe left): shield, time warp, coin vacuum, bomb, rocket, phase, squad call.
+- **Jump**: tap anywhere. Let go early for a small hop, hold for a big jump. Extra air jumps are a shop upgrade (double up to penta).
+- **Dash**: hold to keep dashing; it drains your charge, so burn it all for one long dash. Drag up/down on the button (or slide your finger in swipe mode) to steer.
+- **Slide** ducks; in the air it **slams**. The purple button (or swipe left) uses your **ability**.
 - Rescue baby Gubs: the squad is unlimited, absorbs hits and multiplies your score.
-- Climb springs, wind and cloud platforms up through the sky, stratosphere and space.
+- Stomp or dash enemies for combos, grab close calls, grind rails, ride moving platforms, bounce on springs, climb wind columns.
+- **Boss fights**: the Grump King appears every 1,400m. Survive its attacks, then stomp its head when it dives.
 
 ## Controls
-Settings lets you switch between **buttons** (right / left / split / fully custom drag layout, 3 sizes)
-and **swipe** controls (up jump, right dash, down slide/slam, left ability).
+Buttons (right / left / split / custom drag layout, 3 sizes) or swipe (up jump, right dash, down slide/slam, left ability).
 
 ## Modes
-Classic, Sky Climb, Time Rush (60s), Daily Run (seeded), Zen.
+Classic, Sky Climb, Time Rush, Daily Run, Zen, Boss Rush, Gub Party.
 
-## Shop
-Daily rotating Gub skins (common to legendary, with a daily deal and reroll), permanent upgrades,
-equippable abilities, trails and auras.
+## Progress
+Player level and XP, chests (level-ups and bosses), 51 trophies, daily gift, missions.
+Shop: daily rotating Gub skins (36 total, common to legendary), permanent upgrades, abilities, pets (8), trails and auras.
 
 ## Build
 ```

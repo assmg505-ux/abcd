@@ -19,7 +19,16 @@
     font-family: system-ui, -apple-system, Roboto, "Segoe UI", sans-serif;
     color: var(--ink); font-weight: 800;
   }
+  #gl { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; pointer-events: none; }
   #game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+  #vig {
+    position: fixed; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse at 50% 55%, rgba(255,235,200,0) 55%, rgba(60,20,70,0.34) 100%);
+  }
+  #grain {
+    position: fixed; inset: 0; pointer-events: none; opacity: .045;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>");
+  }
   #safe {
     position: fixed; visibility: hidden; pointer-events: none;
     padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right);
@@ -59,6 +68,9 @@
   .btn.blue { background: var(--blue); }
   .btn.green { background: var(--green); }
   .btn.purple { background: var(--purple); }
+  .btn.orange { background: var(--orange); }
+  .xpbar { display: inline-block; width: 11vh; height: 1.7vh; border: .4vh solid var(--ink); border-radius: 99px; background: #eadfcf; overflow: hidden; margin-left: 1vh; vertical-align: middle; }
+  .xpbar i { display: block; height: 100%; background: var(--green); }
   .btn.white { background: var(--cream); }
   .btn.ghost { background: #e6dccb; color: #6b5a80; }
   .btn.locked { opacity: .55; }
@@ -232,6 +244,9 @@
 </head>
 <body>
 <div id="safe"></div>
+<canvas id="gl"></canvas>
+<div id="vig"></div>
+<div id="grain"></div>
 <canvas id="game"></canvas>
 <div id="toast"></div>
 
@@ -239,6 +254,7 @@
 <div id="menu" class="screen">
   <div class="topbar">
     <div class="pill"><span class="lbl">BEST</span><b id="menuBest">0</b></div>
+    <div class="pill" id="menuLevel">LV 1</div>
     <div class="pill"><span class="coin"></span><b id="menuCoins">0</b></div>
   </div>
   <div class="logo" id="logo"></div>
@@ -248,6 +264,8 @@
     <button class="btn purple small" id="btnMode">MODE</button>
     <button class="btn pink" id="btnShop">SHOP</button>
     <button class="btn blue" id="btnMissions">MISSIONS</button>
+    <button class="btn orange" id="btnTrophies">TROPHIES</button>
+    <button class="btn purple small" id="chestBtn" style="display:none">CHEST</button>
     <button class="btn green" id="giftBtn" style="display:none">GIFT</button>
     <button class="btn white" id="btnSettings" aria-label="Settings">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.4-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3.3h-4l-.4 2.7a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.4L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.4 2.5-1a7.4 7.4 0 0 0 1.7 1l.4 2.7h4l.4-2.7a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.4zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>
@@ -280,6 +298,7 @@
       <button class="tab" data-tab="mine">MY GUBS</button>
       <button class="tab" data-tab="upgrades">UPGRADES</button>
       <button class="tab" data-tab="abilities">ABILITIES</button>
+      <button class="tab" data-tab="pets">PETS</button>
       <button class="tab" data-tab="style">STYLE</button>
     </div>
     <div id="shopBody"></div>
@@ -299,6 +318,29 @@
   </div>
 </div>
 
+<!-- TROPHIES -->
+<div id="trophies" class="screen dim">
+  <div class="panel">
+    <div class="phead">
+      <button class="btn small white" data-back>BACK</button>
+      <h2>TROPHIES</h2>
+      <div class="pill"><b id="trCount">0/0</b></div>
+    </div>
+    <div id="trList"></div>
+  </div>
+</div>
+
+<!-- CHEST -->
+<div id="chest" class="screen dim">
+  <div class="panel narrow">
+    <div class="title outlined" id="chestTitle">GUB CHEST</div>
+    <canvas id="chestCv" width="520" height="360" style="width:46vh;height:32vh"></canvas>
+    <div class="pill" id="chestName" style="font-size:3.6vh">...</div>
+    <button class="btn big yellow pulse" id="btnChestOpen">OPEN!</button>
+    <button class="btn green" id="btnChestOk" style="display:none">NICE!</button>
+  </div>
+</div>
+
 <!-- SETTINGS -->
 <div id="settings" class="screen dim">
   <div class="panel">
@@ -312,6 +354,9 @@
       <button class="btn toggle green" data-set="music">MUSIC</button>
       <button class="btn toggle green" data-set="sfx">SOUND</button>
       <button class="btn toggle green" data-set="haptics">VIBRATE</button>
+    </div>
+    <div class="setrow"><span>GRAPHICS</span>
+      <div class="seg" id="segGfx"><button data-gfx="high">HIGH</button><button data-gfx="low">LOW (FASTER)</button></div>
     </div>
     <div class="sec">CONTROLS</div>
     <div class="setrow"><span>CONTROL STYLE</span>
@@ -386,6 +431,11 @@
 <script src="js/data.js"></script>
 <script src="js/gubdraw.js"></script>
 <script src="js/audio.js"></script>
+<script src="js/three.min.js"></script>
+<script src="js/r3_core.js"></script>
+<script src="js/r3_world.js"></script>
+<script src="js/r3_chars.js"></script>
+<script src="js/r3_decor.js"></script>
 <script src="js/game.js"></script>
 </body>
 </html>
