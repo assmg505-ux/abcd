@@ -12,7 +12,7 @@
 
   // ---------- world constants (logical units; the view is always H tall) ----------
   const H = 720, GY = 600, METER = 40, ALT_U = 25;
-  const GRAV = 3300, JUMP_V = 1150, JUMP2_V = 1020, PAD_V = 2150, REVIVE_COST = 150;
+  const GRAV = 3300, JUMP_V = 1480, JUMP2_V = 1320, JUMP_CUT = 0.67, PAD_V = 2150, REVIVE_COST = 150;
 
   let dpr = 1, sc = 1, lw = 1280, safeL = 0, safeR = 0;
   function resize() {
@@ -28,6 +28,7 @@
   window.addEventListener('resize', resize);
   resize();
   const PX = () => Math.max(220, lw * 0.26) + safeL * 0.5;
+  function pwx() { return camX + PX() + (player ? player.xo || 0 : 0); }
 
   // ---------- utils (generation uses RNG so the daily run can be seeded) ----------
   let RNG = Math.random;
@@ -108,8 +109,11 @@
   const maxJumps = () => 1 + lv('multi');
   const springMul = () => 1 + 0.07 * lv('spring');
   const glideCap = () => [0, 640, 470, 330][lv('glide')];
-  const dashCost = () => [50, 45, 40, 35, 30, 25][lv('dash')];
-  const dashRegen = () => [7, 8, 9.5, 11, 13, 15][lv('dash')];
+  const dashDrain = () => [60, 50, 42, 35, 28, 22][lv('dlen')];
+  const dashRegen = () => [8, 11, 14, 18, 22, 28][lv('dash')];
+  const dashSpeedMul = () => 2.2 + 0.4 * lv('dspd');
+  const dashLift = () => 260 + 220 * lv('dlift');
+  const dashPow = () => lv('dpow');
   const magnetPassive = () => lv('magnet') * 70;
   const powerMul = () => 1 + 0.2 * lv('power');
   const coinMul = () => 1 + 0.1 * lv('coin');
@@ -216,7 +220,7 @@
   let combo = 0, comboT = 0, coinStreak = 0, coinStreakT = 0, missionT = 0, coinAcc = 0;
   let run = null, player = null, revived = false, downHeld = false;
   let autopilot = false, autoHoldT = 0, autoDownT = 0, debugHover = null;
-  let lastHit = '', abilCd = 0, abilMax = 1, slowT = 0, timeLeft = 60, zoneMax = 0, trailAcc = 0, trailSeq = 0, auraT = 0;
+  let zoomK = 0, coinBump = 0, lastKind = '', lastKind2 = '', autoDashT = 0, lastHit = '', abilCd = 0, abilMax = 1, slowT = 0, timeLeft = 60, zoneMax = 0, trailAcc = 0, trailSeq = 0, auraT = 0;
 
   const swipeMode = () => save.settings.scheme === 'swipe';
   const spaceFac = y => clamp((GY - y - 3000) / 1500, 0, 1);
@@ -224,7 +228,7 @@
   function newPlayer() {
     return {
       y: GY, vy: 0, prevY: GY, onGround: true, coyote: 0, jumpBuf: 0, jumps: 0, holding: false, holdT: 0,
-      slideT: 0, slam: false, dashT: 0, energy: 100, invuln: 0, shield: false, shieldRegen: 0,
+      slideT: 0, slam: false, dashing: false, dashHeld: false, dashTime: 0, dashCool: 0, steer: 0, xo: 0, rise: false, runDust: 0, energy: 100, invuln: 0, shield: false, shieldRegen: 0,
       magnetT: 0, megaT: 0, doubleT: 0, rocketT: 0, phaseT: 0, scale: 1, spin: 0, sq: 0, sqv: 0, blinkT: 2, ouchT: 0,
       ghosts: [], ghostT: 0, hopT: 1, padCd: 0
     };
@@ -250,6 +254,13 @@
   const addUfo = (x, cy) => addObs('ufo', x, cy - 22, 74, 44, { baseY: cy - 22, amp: 16, vx: -rnd(40, 90) });
   const addRock = (x, cy) => addObs('rock', x, cy - 32, 64, 64, { cy, amp: 0, rot: 0, vx: -rnd(20, 60), seed: rint(0, 99) });
   const addSaw = (x, cy, r, amp) => addObs('saw', x, cy - r, r * 2, r * 2, { r, cy, baseCy: cy, amp: amp || 0, rot: 0 });
+  const addBoulder = x => addObs('boulder', x, GY - 72, 72, 72, { vx: -230, rot: 0 });
+  const addMine = (x, cy) => addObs('mine', x, cy - 26, 52, 52, { baseY: cy - 26, amp: 7 });
+  const addLaser = (x, h) => addObs('laser', x, GY - h, 18, h, { ph: RNG() * 6, period: 2.2 + RNG() * 0.8, on: true, warn: false });
+  const addPend = x => addObs('pend', x - 330, GY - 345, 660, 360, { ax: x, ay: GY - 340, L: 288, A: 1.0, om: 2.3 + RNG() * 0.5, ph: RNG() * 6 });
+  const addCannon = x => addObs('cannon', x, GY - 56, 72, 56, { fireT: 0.4 + RNG() * 0.5, recoil: 0 });
+  const addBouncer = x => addObs('bouncer', x, GY - 52, 52, 52, { ph: RNG() * 6 });
+  function pendPos(o) { const a = o.A * Math.sin(time * o.om + o.ph); return { x: o.ax + Math.sin(a) * o.L, y: o.ay + Math.cos(a) * o.L, a }; }
   const addBaby = (x, y) => babies.push({ x, y, color: pick(BABY_COLORS), ph: RNG() * 6, taken: false });
   const addPlat = (x, y, w, bounce) => { const p = { x, y, w, bounce: !!bounce }; plats.push(p); return p; };
   const addPad = (x, y) => pads.push({ x, y, w: 130, sq: 0 });
@@ -332,6 +343,7 @@
     const ny = Math.min(cur.y + dy, GY - 110);
     const w = sp * rnd(0.36, 0.52) + 90;
     const Pl = addPlat(cur.x + cur.w + gap, ny, w, false);
+    if (phase !== 'down' && RNG() < 0.15) { Pl.crumble = true; Pl.cT = 0; }
     decorPlat(Pl, cur, gap, phase);
     S.cur = Pl;
   }
@@ -385,9 +397,15 @@
         ['spikes', 3], ['wall', 2], ['crates', 2.2], ['grump', 2 + D * 2], ['pit', 1.4 + D * 2],
         ['plats', 1.6], ['saw', D > 0.15 ? 1.2 + D * 1.5 : 0], ['coins', 1.4], ['combo', D > 0.3 ? 2.4 * D : 0],
         ['baby', baby * luckyMul()], ['pack', meters > 60 ? 0.5 * luckyMul() : 0], ['power', 0.6],
-        ['ascent', (meters > 100 && genX > noAscentUntil) ? 1.5 + 2.2 * D : 0]
+        ['ascent', (meters > 100 && genX > noAscentUntil) ? 1.5 + 2.2 * D : 0],
+        ['boulder', meters > 60 ? 1.5 : 0], ['mines', meters > 100 ? 1.7 : 0], ['swarm', meters > 120 ? 1.4 : 0],
+        ['bouncers', meters > 180 ? 1.3 : 0], ['pendulum', meters > 160 ? 1.5 : 0], ['bridge', meters > 200 ? 1.4 : 0],
+        ['cannon', meters > 240 ? 1.4 : 0], ['laser', meters > 280 ? 1.5 : 0]
       ];
-      w = runPattern(weighted(opts), x, D, sp);
+      for (const o of opts) { if (o[0] === lastKind) o[1] *= 0.08; else if (o[0] === lastKind2) o[1] *= 0.4; }
+      const kind = weighted(opts);
+      lastKind2 = lastKind; lastKind = kind;
+      w = runPattern(kind, x, D, sp);
     }
     genX = x + w;
     extendGround(genX);
@@ -395,8 +413,8 @@
 
   function genTutorial(kind, x) {
     switch (kind) {
-      case 'spike': addSpike(x); coinArc(x - 100, x + 140, 175, 6); tutHint(x, 'TAP anywhere to JUMP! Hold for higher', 'SWIPE UP (or tap) to JUMP! Hold for higher'); return 42;
-      case 'crate': addCrate(x, GY); addCrate(x, GY - 64); tutHint(x, 'Press DASH to smash right through!', 'SWIPE RIGHT to DASH through!'); return 64;
+      case 'spike': addSpike(x); coinArc(x - 100, x + 140, 175, 6); tutHint(x, 'TAP = small hop.  HOLD = BIG jump!', 'SWIPE UP to jump: quick = small hop, hold = BIG jump!'); return 42;
+      case 'crate': addCrate(x, GY); addCrate(x, GY - 64); tutHint(x, 'HOLD DASH to smash through! Slide thumb up/down to steer', 'SWIPE RIGHT & HOLD to dash. Slide up/down to steer!'); return 64;
       case 'grump': addGrump(x, GY - 50, true); coinLine(x - 120, GY - 28, 6, 40); tutHint(x, 'Hold SLIDE to duck - or JUMP on Grumps!', 'SWIPE DOWN to slide - or JUMP on Grumps!'); return 60;
       case 'baby': addBaby(x, GY); tutHint(x, 'Grab baby Gubs! They protect you & multiply score', 'Grab baby Gubs! They protect you & multiply score'); return 40;
       case 'pit': makePit(x, 170); coinArc(x - 50, x + 220, 200, 7); tutHint(x, 'Jump the gaps! Hold to jump higher', 'Jump the gaps! Hold to jump higher'); return 170;
@@ -477,6 +495,46 @@
         return n * 56;
       }
       case 'power': { addPower(x, GY - 150, 0); return 60; }
+      case 'boulder': { addBoulder(x + 380); coinArc(x + 80, x + 300, 150, 5); return 720; }
+      case 'mines': {
+        const n = rint(2, 4);
+        for (let i = 0; i < n; i++) addMine(x + i * 190, GY - (RNG() < 0.7 ? 56 : 135));
+        coinLine(x + 40, GY - 20, 4, 36);
+        return n * 190;
+      }
+      case 'swarm': {
+        const n = rint(3, 4);
+        for (let i = 0; i < n; i++) addGrump(x + i * 105, GY - 70 - i * 68, false);
+        coinLine(x - 60, GY - 30, 4, 36);
+        return n * 105 + 80;
+      }
+      case 'bouncers': {
+        const n = rint(2, 3);
+        for (let i = 0; i < n; i++) addBouncer(x + i * 210);
+        return n * 210;
+      }
+      case 'pendulum': {
+        addPend(x + 330);
+        if (D > 0.35 && RNG() < 0.5) { addPend(x + 330 + 640); return 1340; }
+        coinLine(x + 200, GY - 150, 5, 40);
+        return 700;
+      }
+      case 'bridge': {
+        const w = rint(420, 540), n = Math.floor(w / 170), pw = 100, gapW = (w - n * pw) / (n + 1);
+        makePit(x, w);
+        for (let i = 0; i < n; i++) {
+          const pl = addPlat(x + gapW * (i + 1) + pw * i, GY - 30, pw, false);
+          pl.crumble = true; pl.cT = 0;
+          coinLine(pl.x + 20, GY - 90, 3, 30);
+        }
+        return w;
+      }
+      case 'cannon': { addCannon(x + 420); coinArc(x + 60, x + 260, 140, 5); return 700; }
+      case 'laser': {
+        const n = RNG() < 0.4 ? 2 : 1;
+        for (let i = 0; i < n; i++) addLaser(x + i * 330, rint(150, 215));
+        return n * 330 + 40;
+      }
       case 'ascent': {
         const w = genAscent(x, sp * 1.08);
         noAscentUntil = x + w + 2600;
@@ -558,7 +616,7 @@
     obs = []; plats = []; coins = []; babies = []; powers = []; pads = []; winds = []; parts = []; pops = []; squad = []; hist = []; tutHints = [];
     camX = 0; camY = 0; skyAlt = 0; speed = 460; meters = 0; score = 0; freezeT = 0; shakeT = 0; slowT = 0; debugHover = null;
     genX = 900; combo = 0; comboT = 0; coinStreak = 0; coinAcc = 0; revived = false; hint = null; banner = null; lastBiome = 0; downHeld = false;
-    skyS = null; skyPlateau = 0; noAscentUntil = 0; zoneMax = 0; trailAcc = 0; timeLeft = 60;
+    skyS = null; skyPlateau = 0; noAscentUntil = 0; zoneMax = 0; trailAcc = 0; timeLeft = 60; lastKind = ''; lastKind2 = '';
     genRng = mode === 'daily' ? mulberry32(strHash('gubs-' + dateStr())) : Math.random;
     player = newPlayer();
     player.jumps = 0;
@@ -621,7 +679,7 @@
   function die() {
     if (state !== 'play') return;
     state = 'dying'; dieT = 0;
-    const p = player, px = camX + PX();
+    const p = player, px = pwx();
     shake(0.5, 16); freezeT = 0.1; buzz(180);
     Sound.sfx('die'); Sound.music(null);
     const sk = skinDef();
@@ -681,13 +739,13 @@
     if (revived || save.coins < REVIVE_COST) { Sound.sfx('deny'); shakeEl($('btnRevive')); return; }
     save.coins -= REVIVE_COST; persist();
     revived = true;
-    const px = camX + PX();
+    const px = pwx();
     obs = obs.filter(o => o.x > camX + lw + 300 || o.x + o.w < camX);
     const p = player;
     if (p.y > camY + H - 120) p.y = camY + H - 220;
     if (p.y >= GY - 4 && mode !== 'sky') { p.y = GY; segs.unshift({ x0: camX - 300, x1: camX + lw + 400 }); }
     else plats.push({ x: px - 220, y: p.y + 6, w: 520, bounce: false, temp: 3 });
-    p.vy = 0; p.invuln = 2.5; p.dashT = 0; p.slam = false; p.ouchT = 0; p.shield = true; p.rocketT = 0; p.onGround = false; p.jumps = 1;
+    p.vy = 0; p.invuln = 2.5; p.dashing = false; p.slam = false; p.ouchT = 0; p.shield = true; p.rocketT = 0; p.onGround = false; p.jumps = 1;
     if (mode === 'rush') timeLeft = Math.max(timeLeft, 12);
     state = 'play'; showScreen(null); Sound.music('game'); Sound.sfx('revive');
     screenPop('SECOND CHANCE!', '#7dff9a', 50);
@@ -698,7 +756,7 @@
     state = 'paused';
     $('btnFinish').style.display = mode === 'zen' ? '' : 'none';
     showScreen('pause'); Sound.music(null);
-    downHeld = false; if (player) player.holding = false;
+    downHeld = false; if (player) { player.holding = false; stopDash(); player.steer = 0; }
     pointers.clear();
   }
   function resumeGame() {
@@ -711,35 +769,52 @@
   function releaseJump() { if (player) player.holding = false; }
 
   function doJump(kind) {
-    const p = player, px = camX + PX();
-    p.dashT = 0;
+    const p = player, px = pwx();
+    if (p.dashing) endDash(true);
     if (kind === 1) {
       p.vy = -JUMP_V * springMul(); p.jumps = 1; p.sq = 0.3; Sound.sfx('jump'); dust(px, p.y, 5);
     } else {
       p.vy = -JUMP2_V * springMul(); p.jumps++; p.spin = 1; p.sq = 0.25; Sound.sfx('djump', p.jumps - 2);
       ring(px, p.y - 20, 'rgba(255,255,255,0.9)', 50);
     }
+    p.rise = true;
     p.onGround = false; p.coyote = 0; p.jumpBuf = 0; p.holdT = 0; p.slideT = 0; p.slam = false;
     buzz(8);
   }
 
-  function doDash() {
+  // ----- dash: hold to keep dashing (drains charge), steer up/down, release to stop -----
+  function startDash() {
     const p = player;
-    if (state !== 'play' || p.dashT > 0) return;
-    if (p.energy < dashCost()) { Sound.sfx('deny'); return; }
-    p.energy -= dashCost(); p.dashT = 0.34; p.slam = false; p.slideT = 0; p.vy = 0;
+    if (state !== 'play' || p.rocketT > 0) return;
+    if (p.dashing) { p.dashHeld = true; return; }
+    if (p.energy < 3) { Sound.sfx('deny'); return; }
+    p.dashing = true; p.dashHeld = true; p.dashTime = 0; p.steer = 0; p.slam = false; p.slideT = 0; p.rise = false;
+    p.vy = Math.min(0, p.vy) * 0.3;
     run.dashes++; save.stats.dashes++;
     Sound.sfx('dash'); buzz(25); shake(0.15, 5);
+    ring(pwx(), p.y - 26, '#ffffff', 90); zoomK = Math.max(zoomK, 0.6);
   }
+  function stopDash() { if (player) player.dashHeld = false; }
+  function setSteer(v) { if (player) player.steer = v; }
+  function endDash(silent) {
+    const p = player;
+    if (!p.dashing) return;
+    p.dashing = false; p.dashHeld = false; p.dashCool = 0.45; p.steer = 0;
+    p.invuln = Math.max(p.invuln, 0.25);
+    p.vy = clamp(p.vy, -760, 900);
+    p.rise = false;
+    if (!silent) { burst(pwx(), p.y - 26, '#ffd84a', 10, 420, 8, 'star'); Sound.sfx('whoosh'); }
+  }
+  const steerFrom = dy => Math.abs(dy) < 12 ? 0 : clamp((dy - Math.sign(dy) * 12) / 60, -1, 1);
 
   function pressDown() {
     if (state !== 'play') return;
     const p = player; downHeld = true;
     if (p.onGround) {
-      if (p.slideT <= 0) { Sound.sfx('slide'); dust(camX + PX(), p.y, 4); }
+      if (p.slideT <= 0) { Sound.sfx('slide'); dust(pwx(), p.y, 4); }
       p.slideT = 0.55;
     } else if (!p.slam && p.rocketT <= 0) {
-      p.slam = true; p.dashT = 0; p.vy = Math.max(p.vy, 1400); p.sq = 0.35;
+      p.slam = true; p.dashing = false; p.vy = Math.max(p.vy, 1400); p.sq = 0.35;
       Sound.sfx('whoosh');
     }
   }
@@ -748,7 +823,7 @@
   function useAbility() {
     if (state !== 'play') return;
     if (abilCd > 0) { Sound.sfx('deny'); return; }
-    const ab = abilDef(), p = player, px = camX + PX();
+    const ab = abilDef(), p = player, px = pwx();
     switch (ab.id) {
       case 'bubble':
         p.shield = true; Sound.sfx('shield'); ring(px, p.y - 30, '#9fe8ff', 110); screenPop('BUBBLE!', '#9fe8ff', 38); break;
@@ -764,12 +839,12 @@
         shake(0.5, 16); Sound.sfx('bomb'); buzz(80); freezeT = 0.08;
         for (const o of obs) {
           if (o.dead || o.x < px - 260 || o.x > px + 700 || Math.abs(o.y + o.h / 2 - (p.y - 30)) > 520) continue;
-          if (o.type === 'crate' || o.type === 'grump' || o.type === 'ufo') smash(o, 'mega');
+          if (SMASHABLE[o.type]) smash(o, 'mega');
           else { o.dead = true; burst(o.x + o.w / 2, o.y + o.h / 2, '#cfd5e2', 12, 520, 10, 'square'); }
         }
         screenPop('BOOM!', '#ff8a4a', 54); break;
       case 'rocket':
-        p.rocketT = 2.4; p.dashT = 0; p.slam = false; Sound.sfx('rocket'); shake(0.3, 8); screenPop('BLAST OFF!', '#ff8a4a', 48); break;
+        p.rocketT = 2.4; p.dashing = false; p.slam = false; Sound.sfx('rocket'); shake(0.3, 8); screenPop('BLAST OFF!', '#ff8a4a', 48); break;
       case 'phase':
         p.phaseT = 3.2; Sound.sfx('warp'); screenPop('PHASE SHIFT!', '#d6ccff', 42); break;
       case 'call':
@@ -798,7 +873,8 @@
     worldPop('+' + fmt(pts), x, y, '#fff', 28);
   }
 
-  const SMASHABLE = { crate: 1, grump: 1, ufo: 1, rock: 1 };
+  const SMASHABLE = { crate: 1, grump: 1, ufo: 1, rock: 1, boulder: 1, mine: 1, bouncer: 1, bullet: 1, cannon: 1 };
+  const STOMPABLE = { crate: 1, grump: 1, ufo: 1, cannon: 1 };
   function smash(o, why) {
     if (o.dead) return;
     o.dead = true;
@@ -809,7 +885,12 @@
       worldPop('+3', cx, cy - 30, '#ffd84a', 26);
     } else if (o.type === 'grump') { burst(cx, cy, '#e8455f', 16, 600, 12); save.stats.stomps++; }
     else if (o.type === 'ufo') { burst(cx, cy, '#9fe8ff', 16, 600, 11); save.stats.stomps++; }
+    else if (o.type === 'cannon') { burst(cx, cy, '#8a8fa6', 14, 560, 12, 'square'); burst(cx, cy, '#ffb03a', 6, 400, 9); }
+    else if (o.type === 'mine' || o.type === 'bullet') { burst(cx, cy, '#ff8a4a', 14, 560, 11); burst(cx, cy, '#ffd84a', 6, 400, 8, 'star'); }
+    else if (o.type === 'bouncer') burst(cx, cy, '#7dff9a', 14, 560, 11);
     else burst(cx, cy, '#a6a2c4', 12, 500, 11, 'square');
+    if (why === 'dash' && dashPow() >= 3 && player) player.energy = Math.min(100, player.energy + 7);
+    if (why === 'dash') zoomK = Math.max(zoomK, 0.5);
     Sound.sfx('smash'); buzz(15);
     if (why !== 'mega') shake(0.12, 6);
     freezeT = Math.max(freezeT, 0.035);
@@ -821,17 +902,17 @@
     const p = player;
     smash(o, 'stomp');
     Sound.sfx('stomp');
-    p.vy = p.holding ? -1180 : -920; p.jumps = 1; p.onGround = false; p.slam = false; p.sq = 0.3;
+    p.vy = p.holding ? -1180 : -920; p.jumps = 1; p.onGround = false; p.slam = false; p.sq = 0.3; p.rise = false; zoomK = Math.max(zoomK, 0.5);
     ring(o.x + o.w / 2, o.y, '#ffffff', 60);
   }
 
   function slamImpact(px) {
     const p = player, m = slamMul();
-    shake(0.28, 13); Sound.sfx('slam'); buzz(45);
+    shake(0.28, 13); Sound.sfx('slam'); buzz(45); zoomK = 1;
     ring(px, p.y, 'rgba(255,255,255,0.95)', 170 * m);
     dust(px, p.y, 12);
     for (const o of obs) {
-      if (o.dead || (o.type !== 'crate' && o.type !== 'grump' && o.type !== 'ufo')) continue;
+      if (o.dead || !STOMPABLE[o.type]) continue;
       if (o.x + o.w > px - 200 * m && o.x < px + 260 * m && o.y + o.h > p.y - 170) smash(o, 'slam');
     }
     p.sq = -0.4;
@@ -843,8 +924,8 @@
   }
 
   function hurt() {
-    const p = player, px = camX + PX();
-    if (p.invuln > 0 || p.dashT > 0 || p.megaT > 0 || p.phaseT > 0 || p.rocketT > 0) return;
+    const p = player, px = pwx();
+    if (p.invuln > 0 || p.dashing || p.megaT > 0 || p.phaseT > 0 || p.rocketT > 0) return;
     if (p.shield) {
       p.shield = false; p.invuln = 1.1;
       p.shieldRegen = [0, 0, 40, 20][lv('shield')];
@@ -873,14 +954,14 @@
 
   function pitFall() {
     lastHit = 'FELL';
-    const p = player, px = camX + PX();
+    const p = player, px = pwx();
     if (p.shield || squad.length || mode === 'zen') {
       if (p.shield) { p.shield = false; p.shieldRegen = [0, 0, 40, 20][lv('shield')]; }
       else if (squad.length) {
         const g = squad.pop();
         addPart({ x: px, y: camY + H - 40, vx: (Math.random() - 0.5) * 200, vy: 400, life: 1, max: 1, size: 30, color: g.color, g: 1800, shape: 'gub', rot: 0 });
       }
-      p.y = camY + H - 30; p.vy = -1900; p.jumps = 1; p.invuln = 1.4; p.slam = false; p.dashT = 0;
+      p.y = camY + H - 30; p.vy = -1900; p.jumps = 1; p.invuln = 1.4; p.slam = false; p.dashing = false;
       Sound.sfx('djump'); shake(0.25, 10); buzz(60);
       screenPop('GUB BOOST!', '#7cf2e6', 44);
       ring(px, camY + H - 30, '#ffffff', 80);
@@ -914,7 +995,7 @@
     else if (pw.type === 'shield') p.shield = true;
     else if (pw.type === 'double') p.doubleT = 10 * k;
     else if (pw.type === 'mega') { p.megaT = 6 * k; shake(0.3, 10); }
-    else if (pw.type === 'rocket') { p.rocketT = 2.2 + 0.2 * lv('power'); p.dashT = 0; p.slam = false; Sound.sfx('rocket'); shake(0.3, 8); }
+    else if (pw.type === 'rocket') { p.rocketT = 2.2 + 0.2 * lv('power'); p.dashing = false; p.slam = false; Sound.sfx('rocket'); shake(0.3, 8); }
   }
 
   // ---------- update ----------
@@ -965,6 +1046,7 @@
       }
     }
     for (const pl of plats) {
+      if (pl.fall) continue;
       if (px + half > pl.x && px - half < pl.x + pl.w && prevB <= pl.y + 2 && newB >= pl.y) {
         if (best === null || pl.y < best.y) best = { y: pl.y, bounce: pl.bounce, pl };
       }
@@ -983,6 +1065,11 @@
       case 'ufo': return { x: o.x + 8, y: o.y + 6, w: o.w - 16, h: o.h - 12 };
       case 'rock': return { x: o.x + 8, y: o.y + 8, w: o.w - 16, h: o.h - 16 };
       case 'crate': return { x: o.x + 2, y: o.y + 2, w: o.w - 4, h: o.h - 4 };
+      case 'cannon': return { x: o.x + 2, y: o.y + 2, w: o.w - 4, h: o.h - 4 };
+      case 'bullet': return { x: o.x + 3, y: o.y + 3, w: o.w - 6, h: o.h - 6 };
+      case 'boulder': case 'mine': case 'bouncer': return { x: o.x + 9, y: o.y + 9, w: o.w - 18, h: o.h - 18 };
+      case 'laser': return o.on ? { x: o.x, y: o.y, w: o.w, h: o.h } : { x: -1e9, y: -1e9, w: 0, h: 0 };
+      case 'pend': { const c = pendPos(o); return { x: c.x - 22, y: c.y - 22, w: 44, h: 44 }; }
       default: return o;
     }
   }
@@ -1005,7 +1092,10 @@
       if (p.shieldRegen <= 0) { p.shield = true; Sound.sfx('shield'); screenPop('SHIELD BACK!', '#9fe8ff', 34); }
     }
     p.scale = lerp(p.scale, p.megaT > 0 ? 1.7 : 1, Math.min(1, dt * 8));
-    p.energy = Math.min(100, p.energy + dashRegen() * dt);
+    if (!p.dashing) {
+      if (p.dashCool > 0) p.dashCool -= dt; else p.energy = Math.min(100, p.energy + dashRegen() * dt);
+    }
+    zoomK = Math.max(0, zoomK - dt * 3.5); coinBump = Math.max(0, coinBump - dt * 5);
     p.jumpBuf = Math.max(0, p.jumpBuf - dt);
     p.slideT = Math.max(0, p.slideT - dt);
     if (downHeld && p.onGround) p.slideT = Math.max(p.slideT, 0.08);
@@ -1024,7 +1114,7 @@
     else if (mode === 'rush') speed = 540 + 520 * (1 - Math.exp(-meters / 1800));
     else speed = 460 + 560 * (1 - Math.exp(-meters / 2200));
     Sound.setIntensity(clamp((speed - 460) / 560, 0, 1));
-    const v = speed * (p.dashT > 0 ? 2.3 : 1) * (p.megaT > 0 ? 1.25 : 1) * (p.rocketT > 0 ? 1.15 : 1);
+    const v = speed * (p.dashing ? dashSpeedMul() : 1) * (p.megaT > 0 ? 1.25 : 1) * (p.rocketT > 0 ? 1.15 : 1);
     const dx = v * dt;
     camX += dx;
     const dm = dx / METER;
@@ -1032,7 +1122,12 @@
     score += dm * (1 + squad.length);
     run.score = Math.floor(score); run.meters = Math.floor(meters);
     ensureGen();
-    const px = camX + PX();
+    // forward drift: jumps carry you forward, landing rubber-bands you back a little
+    if (p.dashing) p.xo += (110 - p.xo) * Math.min(1, dt * 6);
+    else if (!p.onGround && p.rocketT <= 0) p.xo += (95 - p.xo) * Math.min(1, dt * 2.6);
+    else p.xo += (0 - p.xo) * Math.min(1, dt * 5);
+    p.xo = clamp(p.xo, -60, 130);
+    const px = pwx();
 
     if (autopilot) autoPlay(px, dt);
 
@@ -1054,17 +1149,26 @@
       p.rocketT -= dt; p.vy = -1050; p.y += p.vy * dt; p.onGround = false; p.jumps = Math.max(p.jumps, 1); p.slam = false;
       if (Math.random() < dt * 60) addPart({ x: px - 6 + (Math.random() - 0.5) * 16, y: p.y + 4, vx: -60 - Math.random() * 80, vy: 260 + Math.random() * 200, life: 0.4, max: 0.4, size: 12 + Math.random() * 8, color: Math.random() < 0.5 ? '#ffd84a' : '#ff6a1a', g: 0, shape: 'circle' });
       if (p.rocketT <= 0) { p.rocketT = 0; p.vy = -500; p.invuln = Math.max(p.invuln, 1.2); p.jumps = 1; }
-    } else if (p.dashT > 0) {
-      p.dashT -= dt; p.vy = 0;
-      if (p.dashT <= 0) p.invuln = Math.max(p.invuln, 0.25);
+    } else if (p.dashing) {
+      p.dashTime += dt;
+      p.energy -= dashDrain() * dt;
+      const target = p.steer < 0 ? p.steer * dashLift() : p.steer * 720;
+      p.vy += (target - p.vy) * Math.min(1, dt * 12);
+      p.y += p.vy * dt;
       p.ghostT -= dt;
       if (p.ghostT <= 0) { p.ghostT = 0.03; p.ghosts.push({ x: px, y: p.y, life: 1 }); }
+      if (p.energy <= 0) { p.energy = 0; endDash(); }
+      else if (!p.dashHeld && p.dashTime >= 0.22) endDash();
     } else {
       let g = GRAV * (1 - 0.4 * sf);
-      if (p.vy < 0 && p.holding && p.holdT < 0.3) g *= 0.42;
-      else if (p.vy > 0) g *= 1.12;
+      if (p.vy > 0) g *= 1.12;
       p.holdT += dt;
       p.vy += g * dt;
+      // variable jump height: let go early and the jump is cut short
+      if (p.rise) {
+        if (p.vy >= 0) p.rise = false;
+        else if (!p.holding && p.vy < -300) { p.vy *= JUMP_CUT; p.rise = false; }
+      }
       if (inWind) { p.vy += (-850 - p.vy) * Math.min(1, dt * 7); p.onGround = false; }
       else if (p.holding && p.vy > 0 && !p.slam && glideCap() > 0 && !p.onGround) p.vy = Math.min(p.vy, glideCap());
       if (p.slam) p.vy = Math.max(p.vy, 2200);
@@ -1083,6 +1187,7 @@
         const impact = p.vy;
         p.y = top.y;
         if (top.bounce) {
+          p.rise = false;
           p.vy = -PAD_V; p.onGround = false; p.jumps = 1; p.sq = 0.4; p.slam = false; p.spin = 0;
           Sound.sfx('spring'); buzz(25); ring(px, p.y, '#ff8fc8', 90);
           if (top.pl) top.pl.sq = 0.5;
@@ -1092,7 +1197,10 @@
             else if (impact > 900) { p.sq = -0.28; dust(px, top.y, 6); }
             else p.sq = -0.15;
             if (p.megaT > 0) shake(0.15, 7);
+            if (!p.dashing) { p.xo -= 16 + Math.min(18, impact / 90); ring(px, top.y - 2, 'rgba(255,255,255,0.7)', 46); if (impact > 1500) shake(0.1, 4); }
           }
+          if (top.pl && top.pl.crumble && !top.pl.fall && top.pl.cT === 0) { top.pl.cT = 0.5; Sound.sfx('slide'); shake(0.08, 3); }
+          p.rise = false;
           p.vy = 0; p.onGround = true; p.jumps = 0; p.coyote = 0.1; p.slam = false; p.spin = 0;
           landed = true;
         }
@@ -1114,6 +1222,10 @@
     for (const pl of plats) {
       if (pl.sq > 0) pl.sq -= dt * 3;
       if (pl.temp) { pl.temp -= dt; }
+      if (pl.crumble) {
+        if (pl.cT > 0) { pl.cT -= dt; if (pl.cT <= 0) { pl.cT = -1; pl.fall = true; pl.fv = 0; burst(pl.x + pl.w / 2, pl.y, '#b08a5a', 9, 320, 9, 'square'); Sound.sfx('smash'); } }
+        if (pl.fall) { pl.fv += 2600 * dt; pl.y += pl.fv * dt; }
+      }
     }
 
     // fall off the bottom of the screen
@@ -1137,22 +1249,23 @@
     const pw = 40 * p.scale, ph = (sliding ? 26 : 48) * p.scale;
     const hx = px - pw / 2 + 6, hy = p.y - ph + 6, hw = pw - 12, hh = ph - 8;
     const falling = p.vy > 0 || landed;
+    const ex = p.dashing ? 14 + 26 * dashPow() : 0;
     for (const o of obs) {
       if (o.dead || o.x > px + 300 || o.x + o.w < px - 200) continue;
       const b = hitbox(o);
-      if (!(hx < b.x + b.w && hx + hw > b.x && hy < b.y + b.h && hy + hh > b.y)) continue;
+      if (!(hx - ex < b.x + b.w && hx + hw + ex > b.x && hy - ex < b.y + b.h && hy + hh + ex > b.y)) continue;
       const smashable = SMASHABLE[o.type];
       if (p.megaT > 0) { smash(o, 'mega'); continue; }
-      if (p.dashT > 0) { if (smashable) smash(o, 'dash'); continue; }
+      if (p.dashing) { if (smashable || dashPow() >= 1) smash(o, 'dash'); continue; }
       if (p.phaseT > 0 || p.rocketT > 0) continue;
-      if ((o.type === 'crate' || o.type === 'grump' || o.type === 'ufo') && falling && prevY <= o.y + 18) { stomp(o); continue; }
+      if (STOMPABLE[o.type] && falling && prevY <= o.y + 18) { stomp(o); continue; }
       lastHit = o.type; hurt();
       if (state !== 'play') return;
     }
 
     // coins
     const pcy = p.y - ph / 2, cr = 30 * p.scale + 16, mr = magnetPassive();
-    const magR = p.magnetT > 0 ? 420 : mr;
+    const magR = p.magnetT > 0 ? 420 : (p.dashing && dashPow() >= 2 ? Math.max(mr, 520) : mr);
     for (const c of coins) {
       if (c.taken || (c.x > px + 700 && !c.mag)) continue;
       let ddx = c.x - px, ddy = c.y - pcy;
@@ -1164,7 +1277,7 @@
       }
       if (ddx * ddx + ddy * ddy < cr * cr) {
         c.taken = true;
-        addCoins(p.doubleT > 0 ? 2 : 1); p.energy = Math.min(100, p.energy + 3);
+        addCoins(p.doubleT > 0 ? 2 : 1); p.energy = Math.min(100, p.energy + 3); coinBump = 1;
         coinStreak++; coinStreakT = 0.45;
         Sound.sfx('coin', coinStreak);
         addPart({ x: c.x, y: c.y, vx: 0, vy: -60, life: 0.3, max: 0.3, size: 22, color: '#fff6b0', g: 0, shape: 'ring' });
@@ -1180,11 +1293,31 @@
     }
 
     // move hazards
+    const newBullets = [];
     for (const o of obs) {
       if (o.type === 'grump' || o.type === 'ufo') { o.x += o.vx * dt; o.y = o.baseY + Math.sin(time * 3 + o.t) * o.amp; }
       else if (o.type === 'rock') { o.x += o.vx * dt; o.rot += dt * 0.8; o.y = o.cy - 32 + Math.sin(time * 1.5 + o.t) * 22; }
       else if (o.type === 'saw') { o.rot += dt * 9; if (o.amp) o.cy = o.baseCy + Math.sin(time * 2.4 + o.t) * o.amp; o.y = o.cy - o.r; }
+      else if (o.type === 'boulder') { o.x += o.vx * dt; o.rot -= dt * 7; }
+      else if (o.type === 'mine') { o.y = o.baseY + Math.sin(time * 2.6 + o.t) * o.amp; }
+      else if (o.type === 'bouncer') { o.y = GY - 52 - Math.abs(Math.sin(time * 3.4 + o.ph)) * 175; }
+      else if (o.type === 'bullet') { o.x += o.vx * dt; }
+      else if (o.type === 'laser') { const ph = (time + o.ph) % o.period; o.on = ph < o.period * 0.58; o.warn = !o.on && ph > o.period - 0.32; }
+      else if (o.type === 'cannon') {
+        if (o.recoil > 0) o.recoil -= dt * 4;
+        if (o.x - px < lw * 0.78 && o.x - px > 160) {
+          o.fireT -= dt;
+          if (o.fireT <= 0) {
+            o.fireT = 1.35 + Math.random() * 0.5; o.recoil = 1;
+            const low = Math.random() < 0.5;
+            newBullets.push({ type: 'bullet', x: o.x - 34, y: low ? GY - 25 : GY - 52, w: 34, h: 22, vx: -560, dead: false, t: 0 });
+            Sound.sfx('whoosh'); burst(o.x - 10, GY - 34, '#ffb03a', 5, 260, 7);
+          }
+        }
+      }
     }
+    for (const b of newBullets) obs.push(b);
+    newBullets.length = 0;
 
     // cleanup
     const left = camX - 300;
@@ -1192,16 +1325,18 @@
     coins = coins.filter(c => !c.taken && c.x > left);
     babies = babies.filter(b => !b.taken && b.x > left);
     powers = powers.filter(q => !q.taken && q.x > left);
-    plats = plats.filter(q => q.x + q.w > left && !(q.temp !== undefined && q.temp <= 0));
+    plats = plats.filter(q => q.x + q.w > left && q.y < GY + 1400 && !(q.temp !== undefined && q.temp <= 0));
     pads = pads.filter(q => q.x + q.w > left);
     winds = winds.filter(q => q.x + q.w > left);
     while (segs.length > 1 && segs[0].x1 < camX - 600) segs.shift();
 
     // feel
     springs(p, dt);
-    hist.push({ t: time, y: p.y });
+    hist.push({ t: time, y: p.y, xo: p.xo });
     while (hist.length && hist[0].t < time - 2.4) hist.shift();
     emitTrail(px, p, dt);
+    p.runDust -= dt;
+    if (p.onGround && p.slideT <= 0 && p.runDust <= 0 && !p.dashing) { p.runDust = 0.11; addPart({ x: px - 14, y: p.y - 3, vx: -speed * 0.2 - Math.random() * 60, vy: -20 - Math.random() * 50, life: 0.3, max: 0.3, size: 5 + Math.random() * 4, color: 'rgba(255,255,255,0.7)', g: 0, shape: 'circle' }); }
     const au = auraDef();
     if (au.id !== 'none') {
       auraT += dt;
@@ -1278,7 +1413,8 @@
   // ---------- autopilot (testing / attract) ----------
   function autoPlay(px, dt) {
     const p = player;
-    autoHoldT -= dt; autoDownT -= dt;
+    autoHoldT -= dt; autoDownT -= dt; autoDashT -= dt;
+    if (autoDashT <= 0 && p.dashing) stopDash();
     if (autoHoldT <= 0 && p.holding) p.holding = false;
     let threat = null, td = 1e9;
     for (const o of obs) {
@@ -1289,7 +1425,7 @@
     if (threat) {
       if (threat.type === 'grump' && threat.baseY > GY - 120) { if (td < speed * 0.22) autoDownT = 0.25; }
       else if (threat.type === 'grump') { /* high grump: stay low */ }
-      else if ((threat.type === 'crate' || threat.type === 'saw' || threat.type === 'rock' || threat.type === 'ufo') && p.energy >= dashCost() && td < speed * 0.14) doDash();
+      else if ((threat.type === 'crate' || threat.type === 'saw' || threat.type === 'rock' || threat.type === 'ufo' || threat.type === 'boulder' || threat.type === 'mine' || threat.type === 'bullet' || threat.type === 'cannon' || threat.type === 'bouncer') && p.energy >= 20 && td < speed * 0.14) { startDash(); autoDashT = 0.5; }
       else if (p.onGround && td < speed * 0.2) { pressJump(); autoHoldT = threat.type === 'wall' ? 0.25 : 0.12; }
     }
     const ahead = px + speed * 0.12;
@@ -1522,6 +1658,15 @@
     const alt = GY - pl.y;
     ctx.lineWidth = 4; ctx.strokeStyle = INK; ctx.lineJoin = 'round';
     const sq = Math.max(0, pl.sq || 0);
+    if (pl.crumble) {
+      const x0 = pl.x + (pl.cT > 0 ? Math.sin(time * 70) * 2.5 : 0);
+      rr(ctx, x0, pl.y - 4, pl.w, 28, 8); ctx.fillStyle = '#b8905c'; ctx.fill(); ctx.stroke();
+      rr(ctx, x0 + 3, pl.y - 2, pl.w - 6, 9, 4); ctx.fillStyle = '#e0bb82'; ctx.fill();
+      ctx.strokeStyle = '#7a5a38'; ctx.lineWidth = 3; ctx.beginPath();
+      ctx.moveTo(x0 + pl.w * 0.3, pl.y + 6); ctx.lineTo(x0 + pl.w * 0.38, pl.y + 14); ctx.lineTo(x0 + pl.w * 0.33, pl.y + 22);
+      ctx.moveTo(x0 + pl.w * 0.7, pl.y + 6); ctx.lineTo(x0 + pl.w * 0.62, pl.y + 15); ctx.stroke();
+      return;
+    }
     if (pl.bounce) {
       const cx = pl.x + pl.w / 2;
       ctx.strokeStyle = INK; ctx.lineWidth = 5;
@@ -1645,6 +1790,61 @@
       ctx.fillStyle = 'rgba(30,20,70,0.3)';
       ctx.beginPath(); ctx.arc(-8, -6, 7, 0, TAU); ctx.arc(10, 8, 5, 0, TAU); ctx.fill();
       ctx.restore();
+    } else if (o.type === 'boulder') {
+      const cx = o.x + o.w / 2, cy = o.y + o.h / 2;
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(o.rot);
+      ctx.fillStyle = '#8d86a8'; ctx.beginPath(); ctx.arc(0, 0, 36, 0, TAU); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = '#5a5478'; ctx.lineWidth = 4; ctx.beginPath();
+      ctx.moveTo(-20, -14); ctx.lineTo(-4, -4); ctx.lineTo(-10, 14); ctx.moveTo(12, -22); ctx.lineTo(18, -2); ctx.lineTo(8, 10); ctx.stroke();
+      ctx.fillStyle = '#b4aed0'; ctx.beginPath(); ctx.arc(-14, -16, 7, 0, TAU); ctx.fill();
+      ctx.restore();
+    } else if (o.type === 'mine') {
+      const cx = o.x + o.w / 2, cy = o.y + o.h / 2;
+      ctx.fillStyle = '#6b6f86';
+      for (let i = 0; i < 8; i++) { const a = i / 8 * TAU + time * 0.5; ctx.beginPath(); ctx.moveTo(cx + Math.cos(a - 0.2) * 18, cy + Math.sin(a - 0.2) * 18); ctx.lineTo(cx + Math.cos(a) * 30, cy + Math.sin(a) * 30); ctx.lineTo(cx + Math.cos(a + 0.2) * 18, cy + Math.sin(a + 0.2) * 18); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+      ctx.fillStyle = '#3b3050'; ctx.beginPath(); ctx.arc(cx, cy, 20, 0, TAU); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = Math.sin(time * 8 + o.t) > 0 ? '#ff4a5a' : '#7a2030'; ctx.beginPath(); ctx.arc(cx, cy, 7, 0, TAU); ctx.fill();
+    } else if (o.type === 'bouncer') {
+      const cx = o.x + o.w / 2, cy = o.y + o.h / 2;
+      ctx.fillStyle = '#3fae5a';
+      for (let i = 0; i < 10; i++) { const a = i / 10 * TAU + time * 2; ctx.beginPath(); ctx.moveTo(cx + Math.cos(a - 0.22) * 20, cy + Math.sin(a - 0.22) * 20); ctx.lineTo(cx + Math.cos(a) * 31, cy + Math.sin(a) * 31); ctx.lineTo(cx + Math.cos(a + 0.22) * 20, cy + Math.sin(a + 0.22) * 20); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+      ctx.fillStyle = '#7dff9a'; ctx.beginPath(); ctx.arc(cx, cy, 21, 0, TAU); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(cx - 7, cy - 3, 6, 0, TAU); ctx.arc(cx + 8, cy - 3, 6, 0, TAU); ctx.fill();
+      ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(cx - 9, cy - 2, 3, 0, TAU); ctx.arc(cx + 6, cy - 2, 3, 0, TAU); ctx.fill();
+      ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(cx - 12, cy - 11); ctx.lineTo(cx - 3, cy - 7); ctx.moveTo(cx + 13, cy - 11); ctx.lineTo(cx + 4, cy - 7); ctx.stroke();
+    } else if (o.type === 'laser') {
+      const bx = o.x + o.w / 2;
+      if (o.on) {
+        const g = ctx.createLinearGradient(o.x - 14, 0, o.x + o.w + 14, 0);
+        g.addColorStop(0, 'rgba(255,59,107,0)'); g.addColorStop(0.5, 'rgba(255,59,107,0.7)'); g.addColorStop(1, 'rgba(255,59,107,0)');
+        ctx.fillStyle = g; ctx.fillRect(o.x - 14, o.y, o.w + 28, o.h);
+        ctx.fillStyle = '#fff'; ctx.fillRect(bx - 3, o.y, 6, o.h);
+      } else if (o.warn && Math.floor(time * 24) % 2 === 0) { ctx.fillStyle = 'rgba(255,59,107,0.55)'; ctx.fillRect(bx - 2, o.y, 4, o.h); }
+      else { ctx.fillStyle = 'rgba(255,59,107,0.25)'; ctx.fillRect(bx - 1, o.y, 2, o.h); }
+      ctx.fillStyle = '#5a5478'; rr(ctx, bx - 14, GY - 14, 28, 14, 4); ctx.fill(); ctx.stroke(); rr(ctx, bx - 14, o.y - 14, 28, 16, 4); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = o.on ? '#ff3b6b' : '#7a2040'; ctx.beginPath(); ctx.arc(bx, o.y - 5, 5, 0, TAU); ctx.fill();
+    } else if (o.type === 'pend') {
+      const c = pendPos(o);
+      ctx.strokeStyle = INK; ctx.lineWidth = 9; ctx.beginPath(); ctx.moveTo(o.ax, o.ay); ctx.lineTo(c.x, c.y); ctx.stroke();
+      ctx.strokeStyle = '#b9bfd4'; ctx.lineWidth = 4; ctx.stroke();
+      ctx.fillStyle = '#5a5478'; ctx.lineWidth = 4; ctx.strokeStyle = INK; rr(ctx, o.ax - 26, o.ay - 18, 52, 24, 8); ctx.fill(); ctx.stroke();
+      ctx.save(); ctx.translate(c.x, c.y); ctx.rotate(-c.a);
+      ctx.fillStyle = '#8a92a8';
+      for (let i = 0; i < 8; i++) { const a = i / 8 * TAU; ctx.beginPath(); ctx.moveTo(Math.cos(a - 0.25) * 22, Math.sin(a - 0.25) * 22); ctx.lineTo(Math.cos(a) * 36, Math.sin(a) * 36); ctx.lineTo(Math.cos(a + 0.25) * 22, Math.sin(a + 0.25) * 22); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+      ctx.fillStyle = '#c3cadb'; ctx.beginPath(); ctx.arc(0, 0, 24, 0, TAU); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#ff4a5a'; ctx.beginPath(); ctx.arc(0, 0, 7, 0, TAU); ctx.fill();
+      ctx.restore();
+    } else if (o.type === 'cannon') {
+      const rc = Math.max(0, o.recoil || 0) * 8;
+      ctx.fillStyle = '#2f2c44'; ctx.fillRect(o.x - 12 + rc, o.y + 12, 38, 22); ctx.strokeRect(o.x - 12 + rc, o.y + 12, 38, 22);
+      rr(ctx, o.x + 6, o.y + 8, o.w - 6, o.h - 8, 10); ctx.fillStyle = '#4b4868'; ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#8a8fa6'; ctx.beginPath(); ctx.arc(o.x + 28, o.y + o.h - 4, 15, 0, TAU); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#c3cadb'; ctx.beginPath(); ctx.arc(o.x + 28, o.y + o.h - 4, 5, 0, TAU); ctx.fill();
+    } else if (o.type === 'bullet') {
+      const cx = o.x + o.w / 2, cy = o.y + o.h / 2;
+      ctx.fillStyle = '#ffb03a'; ctx.beginPath(); ctx.moveTo(o.x + o.w - 2, cy - 8); ctx.lineTo(o.x + o.w + 30 + Math.sin(time * 40) * 6, cy); ctx.lineTo(o.x + o.w - 2, cy + 8); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#2b2b3a'; ctx.beginPath(); ctx.ellipse(cx, cy, o.w / 2, o.h / 2 + 1, 0, 0, TAU); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#ff4a5a'; ctx.beginPath(); ctx.arc(cx - 8, cy, 4, 0, TAU); ctx.fill();
     } else if (o.type === 'saw') {
       const cx = o.x + o.r, cy = o.cy, r = o.r;
       if (o.amp) {
@@ -1666,7 +1866,7 @@
   }
 
   function drawWorld() {
-    const px = camX + PX();
+    const px = pwx();
     ctx.save();
     ctx.translate(-camX, -camY);
     drawGround();
@@ -1714,7 +1914,7 @@
       const dist = (i + 1) * sp + 22, delay = dist / spd;
       while (k > 0 && hist[k].t > time - delay) k--;
       ys[i] = hist.length ? hist[k].y : player.y;
-      xs[i] = px - dist;
+      xs[i] = px - (player.xo || 0) + (hist.length ? (hist[k].xo || 0) : 0) - dist;
     }
     for (let i = nd - 1; i >= 0; i--) {
       const f = squad[n - 1 - i] || squad[i];
@@ -1749,15 +1949,17 @@
     let sx = 1 - p.sq * 0.55, sy = 1 + p.sq;
     if (!p.onGround) { const st = clamp(Math.abs(p.vy) / 9000, 0, 0.12); sy += st; sx -= st * 0.6; }
     if (p.slideT > 0 && p.onGround) { sx = 1.42; sy = 0.56; }
-    if (p.dashT > 0) { sx = 1.3; sy = 0.82; }
+    else if (p.onGround && !p.dashing) { const bb = Math.sin(time * 24); sy += 0.04 * bb; sx -= 0.025 * bb; }
+    if (p.dashing) { sx = 1.3; sy = 0.82; }
+    const tilt = p.dashing ? 0.1 + p.steer * 0.32 : (p.onGround ? 0 : clamp(p.vy / 4500, -0.28, 0.28));
     const flick = p.invuln > 0 && p.megaT <= 0 && Math.floor(time * 16) % 2 === 0;
-    const mouth = p.ouchT > 0 ? 'ouch' : (p.dashT > 0 || p.megaT > 0 || p.rocketT > 0) ? 'grin' : p.slam ? 'o' : (!p.onGround && p.vy < -200) ? 'open' : (!p.onGround && p.vy > 700) ? 'o' : 'smile';
+    const mouth = p.ouchT > 0 ? 'ouch' : (p.dashing || p.megaT > 0 || p.rocketT > 0) ? 'grin' : p.slam ? 'o' : (!p.onGround && p.vy < -200) ? 'open' : (!p.onGround && p.vy > 700) ? 'o' : 'smile';
     if (p.megaT > 0) {
       ctx.fillStyle = 'rgba(125,255,154,0.25)';
       ctx.beginPath(); ctx.arc(px, p.y - size * 0.42, size * 0.75 + Math.sin(time * 20) * 4, 0, TAU); ctx.fill();
     }
     drawGubby(ctx, px, p.y, size, Object.assign(skinOpts(sk, time), {
-      sx, sy, rot: p.spin > 0 ? (1 - p.spin) * TAU : 0,
+      sx, sy, rot: (p.spin > 0 ? (1 - p.spin) * TAU : 0) + tilt,
       alpha: flick ? 0.35 : (p.phaseT > 0 ? 0.45 : 1), mouth, blink: p.blinkT < 0 && p.ouchT <= 0, lookX: 0.7, lookY: clamp(p.vy / 1200, -0.8, 0.8)
     }));
     if (p.rocketT > 0) {
@@ -1827,24 +2029,33 @@
   }
 
   function drawDashBtn(d, p, label) {
-    const ready = p.energy >= dashCost();
+    const dashing = !!p.dashing, ready = p.energy >= 3, low = p.energy < 25;
+    const rr0 = d.r * (dashing ? 1 + Math.sin(time * 24) * 0.03 : 1), s = d.r / 72;
     ctx.globalAlpha = 0.95;
-    ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, TAU);
-    ctx.fillStyle = ready ? '#ffd84a' : 'rgba(255,255,255,0.35)'; ctx.fill();
+    // steering hints: drag up / down while holding
+    for (const dir of [-1, 1]) {
+      const a = dashing ? 0.35 + 0.65 * Math.max(0, dir * (p.steer || 0)) : 0.22;
+      ctx.globalAlpha = a; ctx.fillStyle = '#fff'; ctx.strokeStyle = INK; ctx.lineWidth = 3;
+      const ay = d.y + dir * (d.r + 34 * s);
+      ctx.beginPath(); ctx.moveTo(d.x - 16 * s, ay + dir * 6 * s); ctx.lineTo(d.x, ay - dir * 10 * s); ctx.lineTo(d.x + 16 * s, ay + dir * 6 * s);
+      ctx.lineTo(d.x + 16 * s, ay + dir * 14 * s); ctx.lineTo(d.x, ay - dir * 2 * s); ctx.lineTo(d.x - 16 * s, ay + dir * 14 * s); ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+    ctx.globalAlpha = 0.95;
+    ctx.beginPath(); ctx.arc(d.x, d.y, rr0, 0, TAU);
+    ctx.fillStyle = dashing ? '#fff0a0' : ready ? '#ffd84a' : 'rgba(255,255,255,0.35)'; ctx.fill();
     ctx.lineWidth = 5; ctx.strokeStyle = INK; ctx.stroke();
     ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.arc(d.x, d.y, d.r + 10, -Math.PI / 2, -Math.PI / 2 + TAU * (p.energy / 100));
+    ctx.beginPath(); ctx.arc(d.x, d.y, d.r + 10, -Math.PI / 2, -Math.PI / 2 + TAU * clamp(p.energy / 100, 0, 1));
     ctx.strokeStyle = INK; ctx.lineWidth = 12; ctx.stroke();
-    ctx.strokeStyle = ready ? '#fff' : '#ffd84a'; ctx.lineWidth = 6; ctx.stroke();
+    ctx.strokeStyle = low ? '#ff6f6f' : (ready ? '#fff' : '#ffd84a'); ctx.lineWidth = 6; ctx.stroke();
     ctx.lineCap = 'butt';
-    const s = d.r / 72;
     ctx.beginPath();
     ctx.moveTo(d.x + 0.12 * 54 * s, d.y - 8 * s - 0.5 * 54 * s); ctx.lineTo(d.x - 0.3 * 54 * s, d.y - 8 * s + 0.08 * 54 * s); ctx.lineTo(d.x - 0.02 * 54 * s, d.y - 8 * s + 0.08 * 54 * s);
     ctx.lineTo(d.x - 0.12 * 54 * s, d.y - 8 * s + 0.5 * 54 * s); ctx.lineTo(d.x + 0.3 * 54 * s, d.y - 8 * s - 0.1 * 54 * s); ctx.lineTo(d.x + 0.02 * 54 * s, d.y - 8 * s - 0.1 * 54 * s);
     ctx.closePath();
-    ctx.fillStyle = ready ? '#fff' : 'rgba(255,255,255,0.7)'; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = INK; ctx.stroke();
+    ctx.fillStyle = dashing ? '#ff9a1a' : (ready ? '#fff' : 'rgba(255,255,255,0.7)'); ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = INK; ctx.stroke();
     ctx.globalAlpha = 1;
-    oText(label || 'DASH', d.x, d.y + 40 * s, 20 * s, '#fff', 'center');
+    oText(label || (dashing ? 'HOLD' : 'DASH'), d.x, d.y + 40 * s, 20 * s, '#fff', 'center');
   }
   function drawSlideBtn(dn, onGround, pressed, label) {
     ctx.globalAlpha = 0.95;
@@ -1915,7 +2126,7 @@
     if (mode === 'zen') oText('ZEN', lw / 2, n ? 150 : 100, 22, '#d6ccff', 'center');
 
     drawCoin(ctx, B.pause.x - 170, 50, 17, time * 3);
-    oText(fmt(run.coins), B.pause.x - 146, 52, 34, '#ffd84a');
+    oText(fmt(run.coins), B.pause.x - 146, 52, 34 * (1 + coinBump * 0.3), '#ffd84a');
     ctx.fillStyle = 'rgba(255,247,234,0.92)'; ctx.strokeStyle = INK; ctx.lineWidth = 4;
     ctx.beginPath(); ctx.arc(B.pause.x, B.pause.y, B.pause.r, 0, TAU); ctx.fill(); ctx.stroke();
     ctx.fillStyle = INK; ctx.fillRect(B.pause.x - 11, B.pause.y - 12, 8, 24); ctx.fillRect(B.pause.x + 3, B.pause.y - 12, 8, 24);
@@ -1929,7 +2140,7 @@
       // swipe mode: compact status instead of buttons
       const bx = lw / 2, by = H - 36;
       rr(ctx, bx - 170, by - 10, 190, 20, 10); ctx.fillStyle = 'rgba(43,22,64,0.55)'; ctx.fill();
-      rr(ctx, bx - 170, by - 10, 190 * clamp(p.energy / 100, 0, 1), 20, 10); ctx.fillStyle = p.energy >= dashCost() ? '#ffd84a' : '#d9a441'; ctx.fill();
+      rr(ctx, bx - 170, by - 10, 190 * clamp(p.energy / 100, 0, 1), 20, 10); ctx.fillStyle = p.dashing ? '#fff0a0' : (p.energy < 25 ? '#ff8f8f' : '#ffd84a'); ctx.fill();
       oText('DASH', bx - 76, by, 15, '#fff', 'center');
       drawAbilBtn({ x: bx + 70, y: by - 6, r: 30 }, ready, frac);
     }
@@ -1972,9 +2183,10 @@
       ctx.fillStyle = INK; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(hint.text, lw / 2, 179);
       ctx.globalAlpha = 1;
     }
-    if (player && player.dashT > 0) {
+    if (player && (player.dashing || (state === 'play' && speed > 820))) {
       ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 3;
-      for (let i = 0; i < 14; i++) {
+      const nLines = player.dashing ? 14 : 4;
+      for (let i = 0; i < nLines; i++) {
         const y = Math.random() * H, x = Math.random() * lw, l = 80 + Math.random() * 140;
         ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + l, y); ctx.stroke();
       }
@@ -1991,6 +2203,7 @@
     ctx.setTransform(dpr * sc, 0, 0, dpr * sc, 0, 0);
     ctx.save();
     if (shakeT > 0) { const m = shakeMag * clamp(shakeT / shakeDur, 0, 1); ctx.translate((Math.random() - 0.5) * 2 * m, (Math.random() - 0.5) * 2 * m); }
+    if (zoomK > 0.01) { const z = 1 + zoomK * 0.045; ctx.translate(lw * 0.3, H * 0.62); ctx.scale(z, z); ctx.translate(-lw * 0.3, -H * 0.62); }
     drawSky();
     drawHills();
     drawAmbient();
@@ -2047,8 +2260,8 @@
       if (near(x, y, B.dash, 1.3)) role = 'dash';
       else if (near(x, y, B.slide, 1.3)) role = 'down';
       else if (near(x, y, B.abil, 1.3)) role = 'abil';
-      pointers.set(e.pointerId, { role });
-      if (role === 'jump') pressJump(); else if (role === 'dash') doDash(); else if (role === 'down') pressDown(); else useAbility();
+      pointers.set(e.pointerId, { role, y0: y });
+      if (role === 'jump') pressJump(); else if (role === 'dash') startDash(); else if (role === 'down') pressDown(); else useAbility();
     } else {
       pointers.set(e.pointerId, { role: 'swipe', x0: x, y0: y, t0: performance.now(), fired: false, jump: false, down: false });
     }
@@ -2062,12 +2275,15 @@
       return;
     }
     const q = pointers.get(e.pointerId);
-    if (!q || q.role !== 'swipe' || state !== 'play') return;
+    if (!q || state !== 'play') return;
+    if (q.role === 'dash') { setSteer(steerFrom(y - q.y0)); return; }
+    if (q.role !== 'swipe') return;
+    if (q.dash) { setSteer(steerFrom(y - q.dy0)); return; }
     const dx = x - q.x0, dy = y - q.y0, T = 38 / sc;
     if (Math.abs(dx) < T && Math.abs(dy) < T) return;
     q.fired = true;
     if (Math.abs(dx) > Math.abs(dy)) {
-      if (dx > 0) doDash(); else useAbility();
+      if (dx > 0) { startDash(); q.dash = true; q.dy0 = y; setSteer(0); } else useAbility();
     } else if (dy < 0) { if (!q.jump) { q.jump = true; pressJump(); } else if (player) player.jumpBuf = 0.13; }
     else { q.down = true; pressDown(); }
     q.x0 = x; q.y0 = y;
@@ -2084,6 +2300,7 @@
     if (!q) return;
     pointers.delete(e.pointerId);
     if (q.role === 'swipe' && !q.fired && !q.jump && state === 'play') { pressJump(); }
+    if (q.role === 'dash' || q.dash) { let other = false; pointers.forEach(o => { if (o.role === 'dash' || o.dash) other = true; }); if (!other) { stopDash(); setSteer(0); } }
     recompute();
   }
   canvas.addEventListener('pointerup', endPointer);
@@ -2095,8 +2312,10 @@
     Sound.init();
     const k = e.code;
     if (state === 'play') {
-      if (k === 'Space' || k === 'ArrowUp' || k === 'KeyW') { e.preventDefault(); pressJump(); }
-      else if (k === 'ArrowRight' || k === 'KeyD' || k === 'ShiftLeft' || k === 'ShiftRight') { e.preventDefault(); doDash(); }
+      if ((k === 'ArrowUp' || k === 'KeyW') && player.dashing) { e.preventDefault(); setSteer(-1); }
+      else if ((k === 'ArrowDown' || k === 'KeyS') && player.dashing) { e.preventDefault(); setSteer(1); }
+      else if (k === 'Space' || k === 'ArrowUp' || k === 'KeyW') { e.preventDefault(); pressJump(); }
+      else if (k === 'ArrowRight' || k === 'KeyD' || k === 'ShiftLeft' || k === 'ShiftRight') { e.preventDefault(); startDash(); }
       else if (k === 'ArrowLeft' || k === 'KeyA' || k === 'KeyQ' || k === 'KeyE') { e.preventDefault(); useAbility(); }
       else if (k === 'ArrowDown' || k === 'KeyS') { e.preventDefault(); pressDown(); }
       else if (k === 'Escape' || k === 'KeyP') pauseGame();
@@ -2107,6 +2326,8 @@
     const k = e.code;
     if (k === 'Space' || k === 'ArrowUp' || k === 'KeyW') releaseJump();
     if (k === 'ArrowDown' || k === 'KeyS') releaseDown();
+    if (k === 'ArrowRight' || k === 'KeyD' || k === 'ShiftLeft' || k === 'ShiftRight') stopDash();
+    if (k === 'ArrowUp' || k === 'KeyW' || k === 'ArrowDown' || k === 'KeyS') setSteer(0);
   });
 
   function appPause() { if (state === 'play') pauseGame(); Sound.suspend(); }
@@ -2456,8 +2677,8 @@
     const sw = s.scheme === 'swipe';
     $('rowLayout').style.display = sw ? 'none' : ''; $('rowSize').style.display = sw ? 'none' : ''; $('rowEdit').style.display = sw ? 'none' : '';
     $('howto').innerHTML = sw
-      ? '<b>SWIPE UP</b> (or tap) to jump - hold for higher, and with upgrades tap/swipe again in the air for extra jumps.<br><b>SWIPE RIGHT</b> to DASH through crates and over gaps.<br><b>SWIPE DOWN</b> to slide - in the air it SLAMS.<br><b>SWIPE LEFT</b> to use your ABILITY.<br>Rescue baby Gubs: your squad is unlimited and multiplies your score!'
-      : '<b>TAP</b> anywhere to jump. Hold for a higher jump. Buy <b>MULTI-JUMP</b> in the shop for double, triple and more!<br><b>DASH</b> smashes crates &amp; Grumps and flies over gaps.<br><b>SLIDE</b> ducks under enemies; in the air it <b>SLAMS</b>.<br>The purple button uses your <b>ABILITY</b>.<br>Land on enemies to stomp them. Rescue baby Gubs - your squad is unlimited!';
+      ? '<b>SWIPE UP</b> (or tap) to jump: let go early for a small hop, hold for a BIG jump. With upgrades, jump again in mid-air!<br><b>SWIPE RIGHT and HOLD</b> to DASH. It drains your charge - burn it all for one long dash! While holding, slide your finger <b>UP / DOWN</b> to steer. Let go to stop.<br><b>SWIPE DOWN</b> to slide - in the air it SLAMS.<br><b>SWIPE LEFT</b> to use your ABILITY.<br>Rescue baby Gubs: your squad is unlimited and multiplies your score!'
+      : '<b>TAP</b> anywhere to jump: let go early for a small hop, hold for a BIG jump. Buy <b>MULTI-JUMP</b> in the shop for double, triple and more!<br><b>HOLD DASH</b> to blast forward. It drains your charge - burn it all for one long dash! Drag your thumb <b>UP / DOWN</b> on the button to steer.<br><b>SLIDE</b> ducks under enemies; in the air it <b>SLAMS</b>.<br>The purple button uses your <b>ABILITY</b>.<br>Land on enemies to stomp them. Rescue baby Gubs - your squad is unlimited!';
   }
   document.querySelectorAll('[data-set]').forEach(b => {
     b.addEventListener('click', () => {
@@ -2494,18 +2715,23 @@
     get counts() { return { obs: obs.length, plats: plats.length, coins: coins.length, babies: babies.length, pads: pads.length, winds: winds.length, parts: parts.length }; },
     set autopilot(v) { autopilot = !!v; },
     get lastHit() { return lastHit; },
-    get info() { return { camX, px: camX + PX(), speed, plats, obs, winds, pads }; },
-    press() { pressJump(); }, release() { releaseJump(); }, dash() { doDash(); }, down() { pressDown(); }, up() { releaseDown(); },
+    get info() { return { camX, px: pwx(), speed, plats, obs, winds, pads }; },
+    press() { pressJump(); }, release() { releaseJump(); }, dash() { startDash(); }, dashStop() { stopDash(); }, steer(v) { setSteer(v); }, down() { pressDown(); }, up() { releaseDown(); },
     start: startRun,
     give(c) { save.coins += c; persist(); updateMenuStats(); },
     addSquad(n) { for (let i = 0; i < n; i++) squad.push({ color: BABY_COLORS[i % BABY_COLORS.length], ph: i * 0.7 }); },
-    spawnBabies(n) { const prev = RNG; for (let i = 0; i < n; i++) addBaby(camX + PX() + 200 + i * 60, GY); },
-    power(type) { collectPower({ x: camX + PX(), y: GY - 100, type }, 0); },
+    spawnBabies(n) { const prev = RNG; for (let i = 0; i < n; i++) addBaby(pwx() + 200 + i * 60, GY); },
+    power(type) { collectPower({ x: pwx(), y: GY - 100, type }, 0); },
     warp(m) { meters = m; lastBiome = Math.floor(m / BIOME_LEN); },
     hover(altM) { debugHover = altM == null ? null : GY - altM * ALT_U; if (altM != null) { player.invuln = 99; skyAlt = altM * ALT_U; } },
     ability() { useAbility(); },
+    pattern(kind) {
+      const prev = RNG; RNG = genRng;
+      try { const x = camX + lw * 0.62 + 120; extendGround(x); const w = runPattern(kind, x, 0.5, Math.max(speed, 460)); extendGround(x + w + 300); if (genX < x + w + 100) genX = x + w + 100; }
+      finally { RNG = prev; }
+    },
     skyJump(altM) {
-      const y = GY - altM * ALT_U, x = camX + PX() - 120;
+      const y = GY - altM * ALT_U, x = pwx() - 120;
       plats = []; obs = []; coins = []; winds = []; pads = []; babies = []; powers = [];
       const prev = RNG; RNG = genRng;
       const T = addPlat(x, y, 300, false);

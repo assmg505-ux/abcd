@@ -4,8 +4,9 @@ An arcade runner for Android. Squishy jelly Gubs run, dash, stomp and climb all 
 The game is plain HTML5 canvas (`app/src/main/assets`) wrapped in a thin WebView app.
 
 ## Play
-- **Jump**: tap anywhere (hold = higher). Extra air jumps are a shop upgrade (double up to penta jump).
-- **Dash** smashes crates and enemies and crosses gaps. **Slide** ducks; in the air it **slams**.
+- **Jump**: tap anywhere. Let go early for a small hop, hold for a big jump. Extra air jumps are a shop upgrade (double up to penta jump).
+- **Dash**: hold to keep dashing; it drains your charge, so burn it all for one long dash. Drag up/down on the button (or slide your finger in swipe mode) to steer. Upgrades: recharge, length, speed, strength, upward lift.
+- **Slide** ducks; in the air it **slams**.
 - **Ability** button (or swipe left): shield, time warp, coin vacuum, bomb, rocket, phase, squad call.
 - Rescue baby Gubs: the squad is unlimited, absorbs hits and multiplies your score.
 - Climb springs, wind and cloud platforms up through the sky, stratosphere and space.
