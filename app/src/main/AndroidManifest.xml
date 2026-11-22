@@ -7,7 +7,7 @@
         android:allowBackup="true"
         android:hardwareAccelerated="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="Gubbies"
+        android:label="Gubs"
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">

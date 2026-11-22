@@ -120,7 +120,16 @@
     const t = ac.currentTime, b = sfxBus;
     switch (n) {
       case 'jump': osc('square', 300, t, 0.14, 0.16, b, 640); break;
-      case 'djump': osc('square', 450, t, 0.16, 0.16, b, 980); osc('sine', 900, t + 0.03, 0.12, 0.12, b, 1500); break;
+      case 'djump': {
+        const m = 1 + Math.min(k || 0, 5) * 0.14;
+        osc('square', 450 * m, t, 0.16, 0.16, b, 980 * m); osc('sine', 900 * m, t + 0.03, 0.12, 0.12, b, 1500 * m);
+        break;
+      }
+      case 'spring': osc('sine', 180, t, 0.4, 0.5, b, 760); osc('square', 320, t, 0.12, 0.1, b, 900); break;
+      case 'rocket': noise(t, 0.7, 0.5, b, 'bandpass', 400, 3000); osc('sawtooth', 90, t, 0.6, 0.18, b, 420); break;
+      case 'bomb': osc('sine', 160, t, 0.6, 0.8, b, 30); noise(t, 0.5, 0.7, b, 'lowpass', 2200, 80); osc('square', 90, t, 0.3, 0.2, b, 30); break;
+      case 'warp': osc('sawtooth', 900, t, 0.5, 0.18, b, 90); osc('sine', 600, t, 0.5, 0.2, b, 60); break;
+      case 'gift': [72, 76, 79, 84, 88].forEach((m, i) => osc('triangle', mtof(m), t + i * 0.07, 0.25, 0.3, b)); break;
       case 'coin': {
         const m = 1 + Math.min(k || 0, 12) * 0.04;
         osc('square', 1320 * m, t, 0.06, 0.1, b); osc('square', 1760 * m, t + 0.05, 0.11, 0.1, b);

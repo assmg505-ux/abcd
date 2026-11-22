@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#2b1640">
-<title>Gubbies</title>
+<title>Gubs</title>
 <style>
   :root {
     --ink: #2b1640;
@@ -58,6 +58,7 @@
   .btn.pink { background: var(--pink); }
   .btn.blue { background: var(--blue); }
   .btn.green { background: var(--green); }
+  .btn.purple { background: var(--purple); }
   .btn.white { background: var(--cream); }
   .btn.ghost { background: #e6dccb; color: #6b5a80; }
   .btn.locked { opacity: .55; }
@@ -82,91 +83,157 @@
   .pill .lbl { font-size: .7em; opacity: .7; }
 
   /* ---------- menu ---------- */
-  #menu { background: linear-gradient(rgba(43,22,64,.28), rgba(43,22,64,0) 35%, rgba(43,22,64,0) 70%, rgba(43,22,64,.25)); }
+  #menu { background: linear-gradient(rgba(43,22,64,.28), rgba(43,22,64,0) 35%, rgba(43,22,64,0) 70%, rgba(43,22,64,.25)); gap: 1.8vh; }
   .topbar {
     position: absolute; top: 3vh; left: max(3vw, env(safe-area-inset-left)); right: max(3vw, env(safe-area-inset-right));
     display: flex; justify-content: space-between; align-items: center;
   }
-  .logo { display: flex; gap: .2vh; margin-top: 4vh; }
+  .logo { display: flex; gap: .6vh; margin-top: 4vh; }
   .logo span {
-    font-size: 19vh; font-weight: 900; line-height: .95; display: inline-block; color: var(--c);
+    font-size: 24vh; font-weight: 900; line-height: .95; display: inline-block; color: var(--c);
     transform: rotate(var(--r));
-    animation: bob 1.4s ease-in-out infinite; animation-delay: calc(var(--i) * -.14s);
+    animation: bob 1.4s ease-in-out infinite; animation-delay: calc(var(--i) * -.18s);
     text-shadow:
-      .9vh 0 0 var(--ink), -.9vh 0 0 var(--ink), 0 .9vh 0 var(--ink), 0 -.9vh 0 var(--ink),
-      .65vh .65vh 0 var(--ink), -.65vh .65vh 0 var(--ink), .65vh -.65vh 0 var(--ink), -.65vh -.65vh 0 var(--ink),
-      0 2vh 0 var(--ink);
+      1vh 0 0 var(--ink), -1vh 0 0 var(--ink), 0 1vh 0 var(--ink), 0 -1vh 0 var(--ink),
+      .72vh .72vh 0 var(--ink), -.72vh .72vh 0 var(--ink), .72vh -.72vh 0 var(--ink), -.72vh -.72vh 0 var(--ink),
+      0 2.2vh 0 var(--ink);
   }
   @keyframes bob {
     0%,100% { transform: translateY(0) rotate(var(--r)) scale(1,1); }
     50% { transform: translateY(-2.2vh) rotate(calc(var(--r) * -1)) scale(.96,1.05); }
   }
   .tagline { font-size: 5.4vh; font-weight: 900; letter-spacing: .12em; margin-top: -1vh; }
+  #giftBtn { position: relative; }
+  #giftBtn::after {
+    content: "!"; position: absolute; top: -1.4vh; right: -1vh; width: 3.4vh; height: 3.4vh; border-radius: 50%;
+    background: #ff3b3b; color: #fff; border: .4vh solid var(--ink); font-size: 2.6vh; display: flex; align-items: center; justify-content: center;
+  }
 
   /* ---------- panels ---------- */
   .panel {
     background: var(--cream); border: .7vh solid var(--ink); border-radius: 4vh;
     box-shadow: 0 1.4vh 0 var(--ink);
-    padding: 2.6vh 3.6vh; width: min(94vw, 1000px); max-height: 92vh;
+    padding: 2.6vh 3.6vh; width: min(94vw, 1100px); max-height: 92vh;
     overflow-y: auto; touch-action: pan-y; -webkit-overflow-scrolling: touch;
   }
   .panel.narrow { width: min(80vw, 620px); text-align: center; display: flex; flex-direction: column; gap: 2.6vh; align-items: center; }
   .phead { display: flex; align-items: center; justify-content: space-between; gap: 2vh; }
-  .phead h2 { font-size: 6.6vh; font-weight: 900; letter-spacing: .04em; }
+  .phead h2 { font-size: 6.2vh; font-weight: 900; letter-spacing: .04em; }
   .title { font-size: 10vh; font-weight: 900; letter-spacing: .04em; line-height: 1; }
+  .sec { font-size: 3.4vh; letter-spacing: .12em; margin: 2.4vh 0 .4vh; opacity: .7; }
+  .note { font-size: 3vh; opacity: .7; margin-top: 2vh; text-align: center; }
+
+  .tabs { display: flex; gap: 1.4vh; margin-top: 1.8vh; flex-wrap: wrap; }
+  .tab {
+    font: inherit; font-weight: 900; font-size: 3.2vh; padding: 1vh 2.4vh; border-radius: 2vh;
+    border: .5vh solid var(--ink); background: #e6dccb; color: var(--ink); cursor: pointer;
+  }
+  .tab.on { background: var(--yellow); box-shadow: 0 .5vh 0 var(--ink); }
 
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(24vh, 1fr)); gap: 2vh; margin-top: 2.2vh; }
   .card {
-    background: #fff; border: .5vh solid var(--ink); border-radius: 2.6vh; padding: 1.4vh;
-    display: flex; flex-direction: column; align-items: center; gap: 1vh;
+    position: relative; background: #fff; border: .6vh solid var(--rc, var(--ink)); border-radius: 2.6vh; padding: 1.4vh;
+    display: flex; flex-direction: column; align-items: center; gap: .9vh;
   }
-  .card.equipped { background: #e4ffe9; border-color: #2fae4e; }
+  .card.equipped { background: #e4ffe9; }
+  .card.owned canvas { opacity: 1; }
   .card canvas { width: 20vh; height: 16.6vh; }
-  .card .cname { font-size: 3.4vh; font-weight: 900; }
+  .card .cname { font-size: 3.2vh; font-weight: 900; text-align: center; }
+  .rtag {
+    position: absolute; top: -1.4vh; left: 50%; transform: translateX(-50%);
+    background: var(--rc); color: #fff; font-size: 2vh; letter-spacing: .08em; padding: .2vh 1.4vh;
+    border-radius: 99px; border: .35vh solid var(--ink); white-space: nowrap;
+  }
+  .deal {
+    position: absolute; top: .8vh; right: .8vh; background: #ff3b3b; color: #fff; font-size: 2.2vh;
+    padding: .3vh 1vh; border-radius: 1vh; border: .35vh solid var(--ink); transform: rotate(8deg);
+  }
+  .dailyhead { display: flex; justify-content: space-between; align-items: center; gap: 2vh; margin-top: 1.4vh; font-size: 3.2vh; }
 
-  .mrow {
+  .mrow, .urow {
     display: flex; align-items: center; gap: 2vh; background: #fff;
-    border: .5vh solid var(--ink); border-radius: 2.4vh; padding: 1.6vh 2.2vh; margin-top: 1.6vh;
+    border: .5vh solid var(--ink); border-radius: 2.4vh; padding: 1.5vh 2.2vh; margin-top: 1.5vh;
   }
   .mrow.done { background: #e4ffe9; }
-  .mtext { flex: 1; font-size: 3.8vh; }
+  .urow.equipped { background: #e4ffe9; }
+  .urow canvas { width: 9vh; height: 9vh; flex: none; }
+  .mtext, .urow .info { flex: 1; font-size: 3.8vh; }
+  .urow .uname { font-size: 3.7vh; font-weight: 900; }
+  .urow .udesc { font-size: 2.7vh; opacity: .7; font-weight: 700; }
+  .urow .ueff { font-size: 2.8vh; color: #2f9e4f; }
   .bar { height: 2.4vh; background: #eadfcf; border-radius: 99px; border: .4vh solid var(--ink); overflow: hidden; margin-top: .9vh; }
   .bar i { display: block; height: 100%; background: var(--green); }
+  .pips { display: flex; gap: .7vh; margin-top: .7vh; }
+  .pips i { width: 3.2vh; height: 1.6vh; border-radius: .6vh; border: .35vh solid var(--ink); background: #eadfcf; }
+  .pips i.f { background: var(--green); }
   .reward { font-size: 3.8vh; white-space: nowrap; display: flex; align-items: center; gap: .6vh; }
-  .note { font-size: 3vh; opacity: .7; margin-top: 2vh; text-align: center; }
 
-  .toggles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2vh; margin-top: 2vh; }
+  /* ---------- settings ---------- */
+  .toggles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2vh; margin-top: 1.4vh; }
   .toggle.off { background: #e6dccb; color: #8a7a9c; }
-  .howto { margin-top: 2.4vh; font-size: 3.5vh; line-height: 1.45; background: #fff; border: .5vh solid var(--ink); border-radius: 2.4vh; padding: 1.8vh 2.4vh; }
+  .setrow { display: flex; justify-content: space-between; align-items: center; gap: 2vh; margin-top: 1.6vh; font-size: 3.6vh; }
+  .seg { display: flex; border: .5vh solid var(--ink); border-radius: 2vh; overflow: hidden; }
+  .seg button {
+    font: inherit; font-weight: 900; font-size: 3.1vh; padding: 1vh 2.2vh; background: #fff; color: var(--ink);
+    border: 0; border-right: .4vh solid var(--ink); cursor: pointer;
+  }
+  .seg button:last-child { border-right: 0; }
+  .seg button.on { background: var(--yellow); }
+  .howto { margin-top: 2.4vh; font-size: 3.3vh; line-height: 1.45; background: #fff; border: .5vh solid var(--ink); border-radius: 2.4vh; padding: 1.8vh 2.4vh; }
   .howto b { color: #d63f86; }
 
+  /* ---------- modes ---------- */
+  .mgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(28vh, 1fr)); gap: 2vh; margin-top: 2.2vh; }
+  .mode {
+    font: inherit; text-align: left; cursor: pointer; border: .6vh solid var(--ink); border-radius: 2.8vh; padding: 0;
+    background: #fff; overflow: hidden; box-shadow: 0 .8vh 0 var(--ink); color: var(--ink);
+  }
+  .mode:active { transform: translateY(.6vh); box-shadow: 0 .2vh 0 var(--ink); }
+  .mode .mh { background: var(--mc); padding: 1.4vh 2vh; font-size: 4.2vh; font-weight: 900; border-bottom: .5vh solid var(--ink); }
+  .mode .mb { padding: 1.4vh 2vh; font-size: 2.8vh; font-weight: 700; min-height: 9vh; }
+  .mode .mbest { padding: 0 2vh 1.6vh; font-size: 3vh; font-weight: 900; color: #6b5a80; }
+
   /* ---------- game over ---------- */
-  .over { display: grid; grid-template-columns: 1fr 1.25fr; gap: 1.6vh 4vh; align-items: center; }
+  .over { display: grid; grid-template-columns: 1fr 1.3fr; gap: 1.6vh 4vh; align-items: center; }
   .over .left { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 1vh; }
   .ribbon {
     background: var(--pink); color: #fff; font-size: 3.8vh; font-weight: 900; letter-spacing: .1em;
     padding: .8vh 3vh; border: .5vh solid var(--ink); border-radius: 1.4vh;
     transform: rotate(-4deg); animation: pulse .8s ease-in-out infinite;
   }
-  .bigscore { font-size: 15vh; font-weight: 900; line-height: 1; }
-  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 1.4vh; }
+  .bigscore { font-size: 14vh; font-weight: 900; line-height: 1; }
+  .stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.2vh; }
   .stats div {
-    background: #fff; border: .5vh solid var(--ink); border-radius: 2vh; padding: 1.2vh 1.8vh;
+    background: #fff; border: .5vh solid var(--ink); border-radius: 2vh; padding: 1vh 1.6vh;
     display: flex; flex-direction: column;
   }
-  .stats span { font-size: 2.6vh; opacity: .65; letter-spacing: .06em; }
-  .stats b { font-size: 4.6vh; font-weight: 900; }
+  .stats span { font-size: 2.3vh; opacity: .65; letter-spacing: .06em; }
+  .stats b { font-size: 4.2vh; font-weight: 900; }
   #goMissions { display: flex; flex-direction: column; gap: 1vh; }
   #goMissions div {
     background: #e4ffe9; border: .5vh solid #2fae4e; border-radius: 1.8vh; padding: .9vh 1.6vh;
     font-size: 3vh; display: flex; justify-content: space-between; gap: 1vh; align-items: center;
   }
   .over .buttons { grid-column: 1 / -1; display: flex; gap: 2.4vh; justify-content: center; flex-wrap: wrap; }
+
+  /* ---------- layout editor ---------- */
+  #layout { pointer-events: none; justify-content: flex-start; }
+  #layout .layoutbar { display: flex; gap: 2vh; align-items: center; pointer-events: none; margin-top: 2vh; }
+  #layout .layoutbar .btn { pointer-events: auto; }
+
+  #toast {
+    position: fixed; top: 3vh; left: 50%; transform: translate(-50%, -3vh); z-index: 50;
+    background: var(--ink); color: #fff; font-size: 3.6vh; padding: 1.2vh 3vh; border-radius: 99px;
+    border: .5vh solid #fff; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s;
+    white-space: nowrap;
+  }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
 </style>
 </head>
 <body>
 <div id="safe"></div>
 <canvas id="game"></canvas>
+<div id="toast"></div>
 
 <!-- MENU -->
 <div id="menu" class="screen">
@@ -175,14 +242,28 @@
     <div class="pill"><span class="coin"></span><b id="menuCoins">0</b></div>
   </div>
   <div class="logo" id="logo"></div>
-  <div class="tagline outlined">WE ARE GUBBIES!</div>
+  <div class="tagline outlined">WE ARE GUBS!</div>
   <button class="btn big yellow pulse" id="btnPlay">PLAY</button>
   <div class="row">
+    <button class="btn purple small" id="btnMode">MODE</button>
     <button class="btn pink" id="btnShop">SHOP</button>
     <button class="btn blue" id="btnMissions">MISSIONS</button>
+    <button class="btn green" id="giftBtn" style="display:none">GIFT</button>
     <button class="btn white" id="btnSettings" aria-label="Settings">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.4-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3.3h-4l-.4 2.7a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.4L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.4 2.5-1a7.4 7.4 0 0 0 1.7 1l.4 2.7h4l.4-2.7a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.4zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>
     </button>
+  </div>
+</div>
+
+<!-- MODES -->
+<div id="modes" class="screen dim">
+  <div class="panel">
+    <div class="phead">
+      <button class="btn small white" data-back>BACK</button>
+      <h2>CHOOSE A MODE</h2>
+      <div style="width:12vh"></div>
+    </div>
+    <div id="modeGrid" class="mgrid"></div>
   </div>
 </div>
 
@@ -194,7 +275,14 @@
       <h2>GUB SHOP</h2>
       <div class="pill"><span class="coin"></span><b id="shopCoins">0</b></div>
     </div>
-    <div id="shopGrid" class="grid"></div>
+    <div class="tabs" id="shopTabs">
+      <button class="tab" data-tab="daily">TODAY'S GUBS</button>
+      <button class="tab" data-tab="mine">MY GUBS</button>
+      <button class="tab" data-tab="upgrades">UPGRADES</button>
+      <button class="tab" data-tab="abilities">ABILITIES</button>
+      <button class="tab" data-tab="style">STYLE</button>
+    </div>
+    <div id="shopBody"></div>
   </div>
 </div>
 
@@ -219,21 +307,38 @@
       <h2>SETTINGS</h2>
       <div style="width:12vh"></div>
     </div>
+    <div class="sec">SOUND &amp; FEEL</div>
     <div class="toggles">
       <button class="btn toggle green" data-set="music">MUSIC</button>
       <button class="btn toggle green" data-set="sfx">SOUND</button>
       <button class="btn toggle green" data-set="haptics">VIBRATE</button>
     </div>
-    <div class="howto">
-      <b>TAP</b> anywhere to jump. Hold for a higher jump, tap again in the air to <b>DOUBLE JUMP</b>.<br>
-      <b>DASH</b> smashes crates &amp; Grumps and flies over gaps. It recharges over time and with coins.<br>
-      <b>SLIDE</b> under low Grumps. Press it in the air to <b>SLAM</b> down and break everything below.<br>
-      Land on <b>Grumps &amp; crates</b> to stomp them for combos.<br>
-      Rescue <b>baby Gubbies</b>! Each one multiplies your score and takes a hit for you.
+    <div class="sec">CONTROLS</div>
+    <div class="setrow"><span>CONTROL STYLE</span>
+      <div class="seg" id="segScheme"><button data-scheme="buttons">BUTTONS</button><button data-scheme="swipe">SWIPE</button></div>
     </div>
+    <div class="setrow" id="rowLayout"><span>BUTTON LAYOUT</span>
+      <div class="seg" id="segLayout"><button data-layout="right">RIGHT</button><button data-layout="left">LEFT</button><button data-layout="split">SPLIT</button><button data-layout="custom">CUSTOM</button></div>
+    </div>
+    <div class="setrow" id="rowSize"><span>BUTTON SIZE</span>
+      <div class="seg" id="segSize"><button data-size="0.85">SMALL</button><button data-size="1">MEDIUM</button><button data-size="1.25">LARGE</button></div>
+    </div>
+    <div class="row" style="margin-top:2vh" id="rowEdit">
+      <button class="btn small blue" id="btnEditLayout">MOVE BUTTONS YOURSELF</button>
+    </div>
+    <div class="howto" id="howto"></div>
     <div class="row" style="margin-top:2.4vh">
       <button class="btn small white" id="btnTutorial">REPLAY TUTORIAL</button>
     </div>
+  </div>
+</div>
+
+<!-- LAYOUT EDITOR -->
+<div id="layout" class="screen">
+  <div class="layoutbar">
+    <div class="pill">DRAG THE BUTTONS ANYWHERE</div>
+    <button class="btn small pink" id="btnLayoutReset">RESET</button>
+    <button class="btn small green" id="btnLayoutDone">DONE</button>
   </div>
 </div>
 
@@ -246,6 +351,7 @@
       <button class="btn pink" id="btnRestart">RESTART</button>
       <button class="btn white" id="btnHome">HOME</button>
     </div>
+    <button class="btn green small" id="btnFinish" style="display:none">FINISH RUN</button>
   </div>
 </div>
 
@@ -256,13 +362,15 @@
       <div class="title outlined" id="goTitle">SPLAT!</div>
       <div class="ribbon" id="goBest">NEW BEST!</div>
       <div class="bigscore outlined" id="goScore">0</div>
-      <div class="pill"><span class="lbl">BEST</span><b id="goBestVal">0</b></div>
+      <div class="pill"><span class="lbl" id="goModeLbl">BEST</span><b id="goBestVal">0</b></div>
     </div>
     <div>
       <div class="stats">
         <div><span>DISTANCE</span><b id="goDist">0m</b></div>
+        <div><span>ALTITUDE</span><b id="goAlt">0m</b></div>
         <div><span>COINS</span><b id="goCoins">0</b></div>
-        <div><span>GUBBIES SAVED</span><b id="goSaved">0</b></div>
+        <div><span>GUBS SAVED</span><b id="goSaved">0</b></div>
+        <div><span>BIGGEST SQUAD</span><b id="goSquad">0</b></div>
         <div><span>BEST COMBO</span><b id="goCombo">0</b></div>
       </div>
       <div id="goMissions" style="margin-top:1.4vh"></div>
@@ -275,6 +383,8 @@
   </div>
 </div>
 
+<script src="js/data.js"></script>
+<script src="js/gubdraw.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/game.js"></script>
 </body>
